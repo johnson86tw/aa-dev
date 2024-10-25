@@ -2,8 +2,8 @@
 pragma solidity ^0.8.13;
 
 import {Script, console} from "forge-std/Script.sol";
-import {SimpleAccountFactory} from "@infinitism/samples/SimpleAccountFactory.sol";
-import {IEntryPoint} from "@infinitism/interfaces/IEntryPoint.sol";
+import {SimpleAccountFactory} from "@account-abstraction/contracts/samples/SimpleAccountFactory.sol";
+import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 
 contract DeploySimpleAccountFactoryScript is Script {
     SimpleAccountFactory public factory;

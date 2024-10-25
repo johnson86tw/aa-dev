@@ -1,2 +1,2 @@
 @openzeppelin/=lib/openzeppelin-contracts/
-@infinitism/=lib/account-abstraction/contracts/
+@account-abstraction=lib/account-abstraction
