@@ -7,17 +7,21 @@ import "@account-abstraction/contracts/core/EntryPoint.sol";
 import "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import "@account-abstraction/contracts/interfaces/IStakeManager.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import "@account-abstraction/contracts/samples/SimpleAccount.sol";
 
 contract ATest is Test {
     address entryPoint = 0x0000000071727De22E5E9d8BAf0edAc6f37da032;
     address account = 0x0000000000000000000000000000000000000000;
 
+    /**
+     * forge test -vv --mt test_print_uo
+     */
     function test_print_uo() public {
         PackedUserOperation memory userOp = PackedUserOperation({
             sender: account,
             nonce: 0,
             initCode: bytes(""),
-            callData: bytes(""),
+            callData: abi.encodeCall(SimpleAccount.execute, (0x9e8f8C3Ad87dBE7ACFFC5f5800e7433c8dF409F2, 0.001 ether, "")),
             accountGasLimits: pack(30000, 15000),
             preVerificationGas: 0,
             gasFees: pack(20, 1),

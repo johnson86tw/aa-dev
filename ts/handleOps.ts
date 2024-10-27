@@ -24,8 +24,9 @@ const signer = new Wallet(PRIVATE_KEY, provider)
 const IEntryPoint = new Interface([
 	'function getNonce(address sender, uint192 key) external view returns (uint256 nonce)',
 	'function getUserOpHash(tuple(address sender, uint256 nonce, bytes initCode, bytes callData, bytes32 accountGasLimits, uint256 preVerificationGas, bytes32 gasFees, bytes paymasterAndData, bytes signature) userOp) external view returns (bytes32)',
+	'function handleOps(tuple(address sender, uint256 nonce, bytes initCode, bytes callData, bytes32 accountGasLimits, uint256 preVerificationGas, bytes32 gasFees, bytes paymasterAndData, bytes signature)[] ops, address payable beneficiary) external',
 ])
-const entrypoint = new Contract(ENTRYPOINT, IEntryPoint, provider)
+const entrypoint = new Contract(ENTRYPOINT, IEntryPoint, signer)
 const nonce = toBeHex(await entrypoint.getNonce(sender, 0))
 
 // construct uo for bundler
@@ -74,7 +75,7 @@ console.log('userOpHash', userOpHash)
 const signature = await signer.signMessage(userOpHash)
 
 uo.signature = signature
-console.log('uo', uo)
+userOp.signature = signature
 
 // get required prefund
 // ps: pimlico getRequiredPrefund: https://docs.pimlico.io/permissionless/reference/utils/getRequiredPrefund
@@ -91,20 +92,8 @@ console.log('requiredPrefund in ether', formatEther(requiredPrefund))
 const senderBalance = await provider.getBalance(sender)
 console.log('senderBalance', formatEther(senderBalance))
 
-// send a user operation
-function sendUserOp(userOp: any) {
-	return fetch(BUNDLER_URL, {
-		method: 'post',
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify({
-			jsonrpc: '2.0',
-			method: 'eth_sendUserOperation',
-			id: 1,
-			params: [uo, ENTRYPOINT],
-		}),
-	})
-}
+// call entrypoint.handleOps
+const tx = await entrypoint.handleOps([userOp], signer.address)
+const receipt = await tx.wait()
 
-console.log(await (await sendUserOp(userOp)).json())
+console.log('receipt', receipt)
