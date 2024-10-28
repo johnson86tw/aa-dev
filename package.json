@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "ethers": "^6.13.4",
-    "permissionless": "^0.2.13"
+    "permissionless": "^0.2.13",
+    "viem": "^2.21.35"
   }
 }
