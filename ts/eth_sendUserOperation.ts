@@ -1,4 +1,4 @@
-import { concat, Contract, ethers, formatEther, Interface, toBeHex, Wallet, zeroPadValue } from 'ethers'
+import { concat, Contract, ethers, formatEther, getBytes, Interface, toBeHex, Wallet, zeroPadValue } from 'ethers'
 
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
 	throw new Error('Missing .env')
@@ -56,8 +56,8 @@ const uo = {
 	factoryData: '0x',
 	callData:
 		'0xb61d27f60000000000000000000000009e8f8c3ad87dbe7acffc5f5800e7433c8df409f200000000000000000000000000000000000000000000000000038d7ea4c6800000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000', // bytes
-	callGasLimit: toBeHex(30000n),
-	verificationGasLimit: toBeHex(30000n),
+	callGasLimit: toBeHex(100_000n),
+	verificationGasLimit: toBeHex(100_000n),
 	preVerificationGas: toBeHex(48112n),
 	maxFeePerGas: maxFeePerGas,
 	maxPriorityFeePerGas: maxPriorityFeePerGas,
@@ -90,8 +90,9 @@ console.log('userOp', userOp)
 const userOpHash: string = await entrypoint.getUserOpHash(userOp)
 console.log('userOpHash', userOpHash)
 
-console.log('signing message with signer', signer.address)
-const signature = await signer.signMessage(userOpHash)
+console.log('signing message...', signer.address)
+const signature = await signer.signMessage(getBytes(userOpHash))
+console.log('signature', signature)
 
 uo.signature = signature
 console.log('uo', uo)

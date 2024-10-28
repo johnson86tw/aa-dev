@@ -1,4 +1,4 @@
-import { concat, Contract, ethers, formatEther, Interface, toBeHex, Wallet, zeroPadValue } from 'ethers'
+import { concat, Contract, ethers, formatEther, getBytes, Interface, toBeHex, Wallet, zeroPadValue } from 'ethers'
 
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
 	throw new Error('Missing .env')
@@ -72,7 +72,8 @@ console.log('userOp', userOp)
 const userOpHash: string = await entrypoint.getUserOpHash(userOp)
 console.log('userOpHash', userOpHash)
 
-const signature = await signer.signMessage(userOpHash)
+const signature = await signer.signMessage(getBytes(userOpHash))
+console.log('signature', signature)
 
 uo.signature = signature
 userOp.signature = signature
