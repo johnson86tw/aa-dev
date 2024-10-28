@@ -64,7 +64,7 @@ const uo = {
 	paymaster: null,
 	paymasterVerificationGasLimit: toBeHex(0n),
 	paymasterPostOpGasLimit: toBeHex(0n),
-	paymasterData: '0x',
+	paymasterData: null,
 	signature: '0x',
 }
 
@@ -86,11 +86,11 @@ const userOp = {
 
 console.log('userOp', userOp)
 
-// sign signature and add to userOp
-
+// Sign signature and add to userOp
 const userOpHash: string = await entrypoint.getUserOpHash(userOp)
 console.log('userOpHash', userOpHash)
 
+console.log('signing message with signer', signer.address)
 const signature = await signer.signMessage(userOpHash)
 
 uo.signature = signature
