@@ -28,6 +28,26 @@ const IEntryPoint = new Interface([
 const entrypoint = new Contract(ENTRYPOINT, IEntryPoint, provider)
 const nonce = toBeHex(await entrypoint.getNonce(sender, 0))
 
+// get uo gas price from pimlico bundler
+const gasPriceRes = await (
+	await fetch(BUNDLER_URL, {
+		method: 'post',
+		headers: {
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({
+			jsonrpc: '2.0',
+			method: 'pimlico_getUserOperationGasPrice',
+			id: 1,
+			params: [],
+		}),
+	})
+).json()
+
+console.log('gasPriceRes', gasPriceRes)
+const maxFeePerGas: string = gasPriceRes.result.standard.maxFeePerGas
+const maxPriorityFeePerGas: string = gasPriceRes.result.standard.maxPriorityFeePerGas
+
 // construct uo for bundler
 const uo = {
 	sender,
@@ -39,8 +59,8 @@ const uo = {
 	callGasLimit: toBeHex(30000n),
 	verificationGasLimit: toBeHex(30000n),
 	preVerificationGas: toBeHex(48112n),
-	maxFeePerGas: toBeHex(6900385n),
-	maxPriorityFeePerGas: toBeHex(1322204n),
+	maxFeePerGas: maxFeePerGas,
+	maxPriorityFeePerGas: maxPriorityFeePerGas,
 	paymaster: null,
 	paymasterVerificationGasLimit: toBeHex(0n),
 	paymasterPostOpGasLimit: toBeHex(0n),
@@ -60,7 +80,7 @@ const userOp = {
 	]),
 	preVerificationGas: uo.preVerificationGas,
 	gasFees: concat([zeroPadValue(toBeHex(uo.maxPriorityFeePerGas), 16), zeroPadValue(toBeHex(uo.maxFeePerGas), 16)]),
-	paymasterAndData: uo.paymasterData,
+	paymasterAndData: uo.paymaster && uo.paymasterData ? concat([uo.paymaster, uo.paymasterData]) : '0x',
 	signature: '0x',
 }
 

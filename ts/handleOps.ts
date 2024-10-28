@@ -45,7 +45,7 @@ const uo = {
 	paymaster: null,
 	paymasterVerificationGasLimit: toBeHex(0n),
 	paymasterPostOpGasLimit: toBeHex(0n),
-	paymasterData: '0x',
+	paymasterData: null,
 	signature: '0x',
 }
 
@@ -61,7 +61,7 @@ const userOp = {
 	]),
 	preVerificationGas: uo.preVerificationGas,
 	gasFees: concat([zeroPadValue(toBeHex(uo.maxPriorityFeePerGas), 16), zeroPadValue(toBeHex(uo.maxFeePerGas), 16)]),
-	paymasterAndData: uo.paymasterData,
+	paymasterAndData: uo.paymaster && uo.paymasterData ? concat([uo.paymaster, uo.paymasterData]) : '0x',
 	signature: '0x',
 }
 
@@ -91,6 +91,10 @@ console.log('requiredPrefund in ether', formatEther(requiredPrefund))
 
 const senderBalance = await provider.getBalance(sender)
 console.log('senderBalance', formatEther(senderBalance))
+
+// generate calldata
+const calldata = IEntryPoint.encodeFunctionData('handleOps', [[userOp], signer.address])
+console.log('calldata', calldata)
 
 // call entrypoint.handleOps
 const tx = await entrypoint.handleOps([userOp], signer.address)
