@@ -1,5 +1,21 @@
 ## Foundry
 
+## Versions
+
+- solidity v0.8.27
+- account-abstraction v0.7.0
+- openzeppelin v5.1.0
+<!-- - Solady v0.0.260 -->
+
+
+## Credits
+
+- https://github.com/consenlabs/ethtaipei2023-aa-workshop
+
+
+
+---
+
 **Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
 
 Foundry consists of:
