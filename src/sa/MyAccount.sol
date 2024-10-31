@@ -7,26 +7,17 @@ import "@account-abstraction/contracts/interfaces/IAccount.sol";
 import "@account-abstraction/contracts/interfaces/IAccountExecute.sol";
 
 import "../interfaces/IERC7579Account.sol";
+import "../core/ModuleManager.sol";
 
-contract MyAccount is IAccount, IAccountExecute {
-    address public constant entryPoint = 0x0000000071727De22E5E9d8BAf0edAc6f37da032;
-
+contract MyAccount is IAccount, IAccountExecute, ModuleManager {
     event AccountInitialized(address indexed entryPoint);
 
     error OnlyAccessByEntryPoint();
     error ExecuteUserOpFailed();
 
-    modifier onlyEntryPoint() {
-        if (msg.sender != entryPoint) {
-            revert OnlyAccessByEntryPoint();
-        }
-        _;
-    }
-
-    receive() external payable {}
-
     function initialize() public {
         // install a validator
+        _initModuleManager();
     }
 
     /**
