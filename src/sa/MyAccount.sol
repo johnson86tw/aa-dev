@@ -4,8 +4,10 @@ pragma solidity 0.8.27;
 import "@account-abstraction/contracts/interfaces/IAccount.sol";
 import "@account-abstraction/contracts/interfaces/IAccountExecute.sol";
 
-import "../interfaces/IERC7579Account.sol";
-import "../core/ModuleManager.sol";
+import {IERC7579Account, Execution} from "../interfaces/IERC7579Account.sol";
+import {ModuleManager, IValidator} from "../core/ModuleManager.sol";
+import {ExecutionLib} from "../lib/ExecutionLib.sol";
+import {ExecutionHelper} from "../core/ExecutionHelper.sol";
 import {
     MODULE_TYPE_VALIDATOR,
     MODULE_TYPE_EXECUTOR,
@@ -14,12 +16,31 @@ import {
     MODULE_TYPE_POLICY,
     MODULE_TYPE_SIGNER
 } from "../types/Constants.sol";
+import {
+    ModeLib,
+    CallType,
+    ExecType,
+    ModeCode,
+    CALLTYPE_SINGLE,
+    CALLTYPE_BATCH,
+    CALLTYPE_DELEGATECALL,
+    EXECTYPE_DEFAULT,
+    EXECTYPE_TRY
+} from "../lib/ModeLib.sol";
 
-contract MyAccount is IAccount, IAccountExecute, ModuleManager {
+/**
+ * @author mainly modified from https://github.com/bcnmy/nexus and https://github.com/erc7579/erc7579-implementation
+ */
+contract MyAccount is IAccount, IAccountExecute, IERC7579Account, ModuleManager, ExecutionHelper {
+    using ExecutionLib for bytes;
+    using ModeLib for ModeCode;
+
     event AccountInitialized(address indexed entryPoint);
 
     error OnlyAccessByEntryPoint();
     error ExecuteUserOpFailed();
+    error UnsupportedCallType(CallType callType);
+    error UnsupportedExecType(ExecType execType);
 
     function initialize(address validator, bytes calldata data) public {
         _initModuleManager();
@@ -60,12 +81,49 @@ contract MyAccount is IAccount, IAccountExecute, ModuleManager {
         if (!success) revert ExecuteUserOpFailed();
     }
 
-    // function execute(ModeCode mode, bytes calldata executionCalldata) external payable;
+    /**
+     * @inheritdoc IERC7579Account
+     * @dev Modified from MSABasic
+     */
+    function execute(ModeCode mode, bytes calldata executionCalldata) external payable onlyEntryPointOrSelf {
+        CallType callType = mode.getCallType();
 
-    // function executeFromExecutor(ModeCode mode, bytes calldata executionCalldata)
-    //     external
-    //     payable
-    //     returns (bytes[] memory returnData);
+        if (callType == CALLTYPE_BATCH) {
+            Execution[] calldata executions = executionCalldata.decodeBatch();
+            _execute(executions);
+        } else if (callType == CALLTYPE_SINGLE) {
+            (address target, uint256 value, bytes calldata callData) = executionCalldata.decodeSingle();
+            _execute(target, value, callData);
+        } else {
+            revert UnsupportedCallType(callType);
+        }
+    }
+
+    /**
+     * @inheritdoc IERC7579Account
+     * @dev Modified from MSABasic
+     */
+    function executeFromExecutor(ModeCode mode, bytes calldata executionCalldata)
+        external
+        payable
+        onlyExecutorModule
+        returns (
+            bytes[] memory returnData // TODO returnData is not used
+        )
+    {
+        CallType callType = mode.getCallType();
+
+        if (callType == CALLTYPE_BATCH) {
+            Execution[] calldata executions = executionCalldata.decodeBatch();
+            returnData = _execute(executions);
+        } else if (callType == CALLTYPE_SINGLE) {
+            (address target, uint256 value, bytes calldata callData) = executionCalldata.decodeSingle();
+            returnData = new bytes[](1);
+            returnData[0] = _execute(target, value, callData);
+        } else {
+            revert UnsupportedCallType(callType);
+        }
+    }
 
     /**
      * @dev only supports validator, exector, fallback
@@ -118,16 +176,32 @@ contract MyAccount is IAccount, IAccountExecute, ModuleManager {
         }
     }
 
-    // function supportsExecutionMode(ModeCode encodedMode) external view returns (bool);
+    /**
+     * @dev Modified from https://github.com/bcnmy/nexus Nexus
+     */
+    function supportsExecutionMode(ModeCode mode) external view virtual returns (bool isSupported) {
+        (CallType callType, ExecType execType,,) = mode.decode();
 
-    // function supportsModule(uint256 moduleTypeId) external view returns (bool);
+        // Return true if both the call type and execution type are supported.
+        return (callType == CALLTYPE_SINGLE || callType == CALLTYPE_BATCH || callType == CALLTYPE_DELEGATECALL)
+            && (execType == EXECTYPE_DEFAULT || execType == EXECTYPE_TRY);
+    }
+
+    function supportsModule(uint256 moduleTypeId) external view virtual returns (bool) {
+        if (moduleTypeId == MODULE_TYPE_VALIDATOR) return true;
+        else if (moduleTypeId == MODULE_TYPE_EXECUTOR) return true;
+        else if (moduleTypeId == MODULE_TYPE_FALLBACK) return true;
+        else if (moduleTypeId == MODULE_TYPE_HOOK) return false;
+        else return false;
+    }
 
     /**
      * @dev Modified from https://github.com/bcnmy/nexus ModuleManager
      */
     function isModuleInstalled(uint256 moduleTypeId, address module, bytes calldata additionalContext)
-        internal
+        public
         view
+        override
         returns (bool)
     {
         additionalContext;
