@@ -6,22 +6,39 @@ import {CallType, CALLTYPE_SINGLE, CALLTYPE_STATIC} from "../lib/ModeLib.sol";
 import {AccountBase} from "./AccountBase.sol";
 import {IValidator, IExecutor, IFallback} from "../interfaces/IERC7579Module.sol";
 import "./Receiver.sol";
+import {
+    MODULE_TYPE_VALIDATOR,
+    MODULE_TYPE_EXECUTOR,
+    MODULE_TYPE_FALLBACK,
+    MODULE_TYPE_HOOK,
+    MODULE_TYPE_POLICY,
+    MODULE_TYPE_SIGNER
+} from "../types/Constants.sol";
 
 /**
  * @title ModuleManager
- * @author zeroknots.eth | rhinestone.wtf
- * @dev This contract manages Validator, Executor and Fallback modules for the MSA
+ * @author Modified from https://github.com/erc7579/erc7579-implementation and https://github.com/bcnmy/nexus
+ *
  * @dev it uses SentinelList to manage the linked list of modules
- * NOTE: the linked list is just an example. accounts may implement this differently
  */
 abstract contract ModuleManager is AccountBase, Receiver {
     using SentinelListLib for SentinelListLib.SentinelList;
+
+    event ModuleInstalled(uint256 moduleTypeId, address module); // refer to Nexus IModuleManagerEventsAndErrors
+    event ModuleUninstalled(uint256 moduleTypeId, address module); // refer to Nexus IModuleManagerEventsAndErrors
 
     error InvalidModule(address module);
     error NoFallbackHandler(bytes4 selector);
     error CannotRemoveLastValidator();
 
+    error ValidatorNotInstalled(address validator); // refer to Nexus::validateUserOp
+    error UnsupportedModuleType(uint256 moduleType);
+    error ModuleAddressCanNotBeZero(); // refer to Nexus IModuleManagerEventsAndErrors
+    error ModuleNotInstalled(uint256 moduleTypeId, address module); // refer to Nexus IModuleManagerEventsAndErrors
+    error NoValidatorInstalled(); // refer to Nexus IModuleManagerEventsAndErrors
+
     // keccak256("modulemanager.storage.msa");
+
     bytes32 internal constant MODULEMANAGER_STORAGE_LOCATION =
         0xf88ce1fdb7fb1cbd3282e49729100fa3f2d6ee9f797961fe4fb1871cea89ea02;
 
@@ -33,7 +50,7 @@ abstract contract ModuleManager is AccountBase, Receiver {
     /// @custom:storage-location erc7201:modulemanager.storage.msa
     struct ModuleManagerStorage {
         // linked list of validators. List is initialized by initializeAccount()
-        SentinelListLib.SentinelList $valdiators;
+        SentinelListLib.SentinelList $validators;
         // linked list of executors. List is initialized by initializeAccount()
         SentinelListLib.SentinelList $executors;
         // single fallback handler for all fallbacks
@@ -55,42 +72,51 @@ abstract contract ModuleManager is AccountBase, Receiver {
     }
 
     modifier onlyValidatorModule(address validator) {
-        SentinelListLib.SentinelList storage $valdiators = $moduleManager().$valdiators;
-        if (!$valdiators.contains(validator)) revert InvalidModule(validator);
+        SentinelListLib.SentinelList storage $validators = $moduleManager().$validators;
+        if (!$validators.contains(validator)) revert InvalidModule(validator);
         _;
     }
 
     function _initModuleManager() internal virtual {
         ModuleManagerStorage storage $ims = $moduleManager();
         $ims.$executors.init();
-        $ims.$valdiators.init();
+        $ims.$validators.init();
     }
 
     function isAlreadyInitialized() internal view virtual returns (bool) {
         ModuleManagerStorage storage $ims = $moduleManager();
-        return $ims.$valdiators.alreadyInitialized();
+        return $ims.$validators.alreadyInitialized();
     }
 
     /////////////////////////////////////////////////////
     //  Manage Validators
     ////////////////////////////////////////////////////
     function _installValidator(address validator, bytes calldata data) internal virtual {
-        SentinelListLib.SentinelList storage $valdiators = $moduleManager().$valdiators;
-        $valdiators.push(validator);
+        SentinelListLib.SentinelList storage $validators = $moduleManager().$validators;
+        $validators.push(validator);
         IValidator(validator).onInstall(data);
     }
 
     function _uninstallValidator(address validator, bytes calldata data) internal {
         // TODO: check if its the last validator. this might brick the account
-        SentinelListLib.SentinelList storage $valdiators = $moduleManager().$valdiators;
+        SentinelListLib.SentinelList storage $validators = $moduleManager().$validators;
         (address prev, bytes memory disableModuleData) = abi.decode(data, (address, bytes));
-        $valdiators.pop(prev, validator);
+        $validators.pop(prev, validator);
         IValidator(validator).onUninstall(disableModuleData);
     }
 
     function _isValidatorInstalled(address validator) internal view virtual returns (bool) {
-        SentinelListLib.SentinelList storage $valdiators = $moduleManager().$valdiators;
-        return $valdiators.contains(validator);
+        SentinelListLib.SentinelList storage $validators = $moduleManager().$validators;
+        return $validators.contains(validator);
+    }
+
+    /**
+     * @dev Modified from https://github.com/bcnmy/nexus ModuleManager
+     */
+    function _hasValidators() internal view returns (bool) {
+        SentinelListLib.SentinelList storage $validators = $moduleManager().$validators;
+        return
+            $validators.getNext(address(0x01)) != address(0x01) && $validators.getNext(address(0x01)) != address(0x00);
     }
 
     /**
@@ -103,8 +129,8 @@ abstract contract ModuleManager is AccountBase, Receiver {
         virtual
         returns (address[] memory array, address next)
     {
-        SentinelListLib.SentinelList storage $valdiators = $moduleManager().$valdiators;
-        return $valdiators.getEntriesPaginated(cursor, size);
+        SentinelListLib.SentinelList storage $validators = $moduleManager().$validators;
+        return $validators.getEntriesPaginated(cursor, size);
     }
 
     /////////////////////////////////////////////////////

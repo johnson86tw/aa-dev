@@ -15,6 +15,7 @@
 ## Credits
 
 - https://github.com/consenlabs/ethtaipei2023-aa-workshop
+- https://github.com/bcnmy/nexus
 
 
 

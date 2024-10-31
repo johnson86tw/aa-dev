@@ -20,6 +20,7 @@ struct ECDSAValidatorStorage {
 
 /**
  * @author Modified from https://github.com/zerodevapp/kernel/tree/dev/src/validator/ECDSAValidator.sol
+ * @dev Module Type: Validator or Hook
  */
 contract ECDSAValidator is IValidator, IHook {
     event OwnerRegistered(address indexed kernel, address indexed owner);
