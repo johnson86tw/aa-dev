@@ -2,3 +2,4 @@
 @account-abstraction=lib/account-abstraction
 sentinellist/=lib/sentinellist/src/
 forge-std/=lib/forge-std/src/
+solady/=lib/solady/src/

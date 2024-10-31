@@ -1,5 +1,9 @@
 ## Foundry
 
+- types/, ECDSAValidator is from https://github.com/zerodevapp/kernel
+- core/, interfaces/, lib/ is from https://github.com/erc7579/erc7579-implementation
+
+
 ## Versions
 
 - solidity v0.8.27
