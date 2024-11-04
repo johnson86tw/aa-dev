@@ -24,9 +24,6 @@ import {
 abstract contract ModuleManager is AccountBase, Receiver {
     using SentinelListLib for SentinelListLib.SentinelList;
 
-    event ModuleInstalled(uint256 moduleTypeId, address module); // refer to Nexus IModuleManagerEventsAndErrors
-    event ModuleUninstalled(uint256 moduleTypeId, address module); // refer to Nexus IModuleManagerEventsAndErrors
-
     error InvalidModule(address module);
     error NoFallbackHandler(bytes4 selector);
     error CannotRemoveLastValidator();

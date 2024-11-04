@@ -69,6 +69,7 @@ ValidationData constant SIG_VALIDATION_FAILED = ValidationData.wrap(SIG_VALIDATI
 bytes4 constant ERC1271_MAGICVALUE = 0x1626ba7e;
 bytes4 constant ERC1271_INVALID = 0xffffffff;
 
+// ERC7579 & ERC7780
 uint256 constant MODULE_TYPE_VALIDATOR = 1;
 uint256 constant MODULE_TYPE_EXECUTOR = 2;
 uint256 constant MODULE_TYPE_FALLBACK = 3;
