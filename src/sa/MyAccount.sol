@@ -50,6 +50,8 @@ contract MyAccount is IAccount, IAccountExecute, IERC7579Account, ModuleManager,
 
     /**
      * @inheritdoc IAccount
+     *
+     * nonce: | 4 bytes nothing | 20 bytes validator address | 8 bytes sequence |
      */
     function validateUserOp(PackedUserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
         external
