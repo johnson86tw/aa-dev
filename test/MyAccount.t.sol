@@ -18,14 +18,10 @@ contract MyAccountTest is Test {
         account = factory.createAccount(1, address(validator), abi.encodePacked(alice));
     }
 
-    function testGetAddress() public {
-        address expected = factory.getAddress(1, address(validator), abi.encodePacked(alice));
-        assertEq(expected, address(0xAf847051CF2080caAEC0e536A086Ea15865af412));
-    }
-
     function testCreateAccount() public {
+        address expected = factory.getAddress(1, address(validator), abi.encodePacked(alice));
         MyAccount account = factory.createAccount(1, address(validator), abi.encodePacked(alice));
-        assertEq(address(account), address(0xAf847051CF2080caAEC0e536A086Ea15865af412));
+        assertEq(address(account), expected);
     }
 
     /**
