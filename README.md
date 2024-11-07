@@ -1,7 +1,7 @@
 ## Foundry
 
-- types/, ECDSAValidator is from https://github.com/zerodevapp/kernel
-- core/, interfaces/, lib/ is from https://github.com/erc7579/erc7579-implementation
+- `types/`, ECDSAValidator is from https://github.com/zerodevapp/kernel
+- `core/`, `interfaces/`, `lib/` is from https://github.com/erc7579/erc7579-implementation
 
 
 ## Versions
@@ -17,7 +17,11 @@
 - https://github.com/consenlabs/ethtaipei2023-aa-workshop
 - https://github.com/bcnmy/nexus
 
-
+**Webauthn/Passkeys*
+- `modules/webauthn/` is from https://github.com/zerodevapp/kernel-7579-plugins
+- https://github.com/zerodevapp/sdk
+- https://github.com/zerodevapp/passkey-tutorial
+- https://github.com/zerodevapp/passkey-server
 
 ---
 
