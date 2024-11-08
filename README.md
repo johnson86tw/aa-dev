@@ -1,7 +1,11 @@
-## Foundry
+# aa-dev
 
-- `types/`, ECDSAValidator is from https://github.com/zerodevapp/kernel
-- `core/`, `interfaces/`, `lib/` is from https://github.com/erc7579/erc7579-implementation
+- ERC-7579 Modular Smart Account
+- Validation for ECDSA and WebAuthn
+- Sending a user operation with ethers v6
+
+> [!WARNING]
+> This project is for development and learning purposes only
 
 
 ## Versions
@@ -9,16 +13,18 @@
 - solidity v0.8.27
 - account-abstraction v0.7.0
 - openzeppelin v5.1.0
-<!-- - Solady v0.0.260 -->
+- Solady v0.0.260
 
 
 ## Credits
 
 - https://github.com/consenlabs/ethtaipei2023-aa-workshop
 - https://github.com/bcnmy/nexus
+- `types/*` and ECDSAValidator is from https://github.com/zerodevapp/kernel
+- `core/*`, `interfaces/*`, `lib/*` is from https://github.com/erc7579/erc7579-implementation
 
 **Webauthn/Passkeys*
-- `modules/webauthn/` is from https://github.com/zerodevapp/kernel-7579-plugins
+- `modules/webauthn/*` is from https://github.com/zerodevapp/kernel-7579-plugins
 - https://github.com/zerodevapp/sdk
 - https://github.com/zerodevapp/passkey-tutorial
 - https://github.com/zerodevapp/passkey-server
