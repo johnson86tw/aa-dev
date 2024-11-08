@@ -1,5 +1,6 @@
-import { concat, ethers, formatEther, getBytes, parseEther, toBeHex, Wallet, zeroPadValue } from 'ethers'
-import { createEntryPoint, ENTRYPOINT, fetchUserOpHash, type UserOperation } from './utils'
+import { concat, ethers, formatEther, getBytes, parseEther, toBeHex, Wallet, zeroPadBytes, zeroPadValue } from 'ethers'
+import { createEntryPoint, ENTRYPOINT, fetchUserOpHash, getHandleOpsCalldata, type UserOperation } from './utils'
+import { Interface } from 'ethers'
 
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
 	throw new Error('Missing .env')
@@ -22,7 +23,6 @@ const entrypoint = createEntryPoint(provider)
 // Build nonce
 const nonceKey = zeroPadValue(ecdsaValidator, 24)
 const nonce = toBeHex(await entrypoint.getNonce(sender, nonceKey))
-console.log('nonce', nonce)
 
 /**
  * Build callData
@@ -41,19 +41,36 @@ const execution = {
 	data: '0x',
 }
 
-const abiCoder = new ethers.AbiCoder()
-const encodedData = abiCoder.encode(
-	['address', 'uint256', 'bytes'],
-	[execution.target, execution.value, execution.data],
-)
-const callData = abiCoder.encode(['bytes32', 'bytes'], [modeCode, encodedData])
+const executionCalldata = concat([execution.target, zeroPadValue(toBeHex(execution.value), 32), execution.data])
+console.log('executionCalldata', executionCalldata)
+
+const IMyAccount = new Interface(['function execute(bytes32 mode, bytes calldata executionCalldata)'])
+const callData = IMyAccount.encodeFunctionData('execute', [modeCode, executionCalldata])
+
+const currentGasPrice = (
+	await (
+		await fetch(BUNDLER_URL, {
+			method: 'post',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				jsonrpc: '2.0',
+				method: 'pimlico_getUserOperationGasPrice',
+				id: 1,
+				params: [],
+			}),
+		})
+	).json()
+).result
+
+const maxFeePerGas = currentGasPrice.standard.maxFeePerGas
+const maxPriorityFeePerGas = currentGasPrice.standard.maxPriorityFeePerGas
 
 // Build gas
 const callGasLimit = 100_000n
 const verificationGasLimit = 100_000n
 const preVerificationGas = 50_000n
-const maxPriorityFeePerGas = 4_000_000n
-const maxFeePerGas = 6_000_000_000n
 
 const userOp: UserOperation = {
 	sender,
@@ -64,8 +81,8 @@ const userOp: UserOperation = {
 	callGasLimit: toBeHex(callGasLimit),
 	verificationGasLimit: toBeHex(verificationGasLimit),
 	preVerificationGas: toBeHex(preVerificationGas),
-	maxFeePerGas: toBeHex(maxFeePerGas),
-	maxPriorityFeePerGas: toBeHex(maxPriorityFeePerGas),
+	maxFeePerGas: maxFeePerGas,
+	maxPriorityFeePerGas: maxPriorityFeePerGas,
 	paymaster: null,
 	paymasterVerificationGasLimit: toBeHex(0n),
 	paymasterPostOpGasLimit: toBeHex(0n),
@@ -73,14 +90,53 @@ const userOp: UserOperation = {
 	signature: '0x',
 }
 
-const userOpHash = await fetchUserOpHash(userOp, provider)
+let userOpHash = await fetchUserOpHash(userOp, provider)
 console.log('userOpHash', userOpHash)
 
 console.log('signing message... by', signer.address)
-const signature = await signer.signMessage(getBytes(userOpHash))
+let signature = await signer.signMessage(getBytes(userOpHash))
 userOp.signature = signature
 
+const estimateGas = (
+	await (
+		await fetch(BUNDLER_URL, {
+			method: 'post',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				jsonrpc: '2.0',
+				method: 'eth_estimateUserOperationGas',
+				id: 1,
+				params: [userOp, ENTRYPOINT],
+			}),
+		})
+	).json()
+).result
+console.log(estimateGas)
+
+// why cannot modify? it complaint AA24 signature error ??
+// userOp.preVerificationGas = estimateGas.preVerificationGas
+// userOp.verificationGasLimit = estimateGas.verificationGasLimit
+// userOp.callGasLimit = estimateGas.callGasLimit
+// userOp.paymasterVerificationGasLimit = estimateGas.paymasterVerificationGasLimit
+// userOp.paymasterPostOpGasLimit = estimateGas.paymasterPostOpGasLimit
+
+// sign again!
+const realUserOpHash = await fetchUserOpHash(userOp, provider)
+console.log('userOpHash', realUserOpHash)
+
+console.log('signing message... by', signer.address)
+const realSignature = await signer.signMessage(getBytes(realUserOpHash))
+
+userOp.signature = realSignature
+
+// ==================================================================================================
+
 console.log('userOp', userOp)
+
+const handlesOpsCalldata = getHandleOpsCalldata(userOp, sender)
+console.log('handlesOpsCalldata', handlesOpsCalldata)
 
 // Get required prefund
 const requiredGas =

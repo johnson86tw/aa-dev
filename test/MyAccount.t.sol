@@ -70,7 +70,9 @@ contract MyAccountTest is AATest {
         ModeCode modeCode =
             ModeLib.encode(CALLTYPE_SINGLE, EXECTYPE_DEFAULT, MODE_DEFAULT, ModePayload.wrap(bytes22(0)));
 
-        bytes memory executionCalldata = ExecutionLib.encodeSingle(bob, 0.01 ether, "");
+        bytes memory executionCalldata = ExecutionLib.encodeSingle(bob, 0.001 ether, "");
+        console.logBytes(executionCalldata);
+
         bytes memory callData = abi.encodeCall(MyAccount.execute, (modeCode, executionCalldata));
 
         uint256 callGasLimit = 200_000;
@@ -102,6 +104,6 @@ contract MyAccountTest is AATest {
 
         IEntryPoint(entryPoint).handleOps(ops, payable(alice));
 
-        assertEq(bob.balance, 0.01 ether);
+        assertEq(bob.balance, 0.001 ether);
     }
 }
