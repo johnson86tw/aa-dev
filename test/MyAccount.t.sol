@@ -67,24 +67,29 @@ contract MyAccountTest is AATest {
         uint192 nonceKey = uint192(bytes24(abi.encodePacked(bytes4(0), address(validator))));
         uint256 nonce = IEntryPoint(entryPoint).getNonce(address(account), nonceKey);
 
-        PackedUserOperation memory userOp = PackedUserOperation({
-            sender: address(account),
-            nonce: nonce,
-            initCode: bytes(""),
-            callData: bytes(""),
-            accountGasLimits: AAUtils.pack(200_000, 80_000),
-            preVerificationGas: 0,
-            gasFees: AAUtils.pack(1322204, 6900385),
-            paymasterAndData: bytes(""),
-            signature: bytes("")
-        });
-
         ModeCode modeCode =
             ModeLib.encode(CALLTYPE_SINGLE, EXECTYPE_DEFAULT, MODE_DEFAULT, ModePayload.wrap(bytes22(0)));
 
         bytes memory executionCalldata = ExecutionLib.encodeSingle(bob, 0.01 ether, "");
         bytes memory callData = abi.encodeCall(MyAccount.execute, (modeCode, executionCalldata));
-        userOp.callData = callData;
+
+        uint256 callGasLimit = 200_000;
+        uint256 verificationGasLimit = 80_000;
+        uint256 preVerificationGas = 0;
+        uint256 maxPriorityFeePerGas = 1_000_000;
+        uint256 maxFeePerGas = 1_000_000;
+
+        PackedUserOperation memory userOp = PackedUserOperation({
+            sender: address(account),
+            nonce: nonce,
+            initCode: bytes(""),
+            callData: callData,
+            accountGasLimits: AAUtils.pack(callGasLimit, verificationGasLimit),
+            preVerificationGas: preVerificationGas,
+            gasFees: AAUtils.pack(maxPriorityFeePerGas, maxFeePerGas),
+            paymasterAndData: bytes(""),
+            signature: bytes("")
+        });
 
         bytes32 userOpHash = IEntryPoint(entryPoint).getUserOpHash(userOp);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(0xbeef, MessageHashUtils.toEthSignedMessageHash(userOpHash));

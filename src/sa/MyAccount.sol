@@ -43,7 +43,7 @@ contract MyAccount is IAccount, IAccountExecute, IERC7579Account, ModuleManager,
     error UnsupportedCallType(CallType callType);
     error UnsupportedExecType(ExecType execType);
 
-    address _entryPoint;
+    address private _entryPoint;
 
     function entryPoint() public view override returns (address) {
         return _entryPoint;
@@ -53,7 +53,8 @@ contract MyAccount is IAccount, IAccountExecute, IERC7579Account, ModuleManager,
     function initialize(address anEntryPoint, address validator, bytes calldata data) public {
         _entryPoint = anEntryPoint;
         _initModuleManager();
-        _installValidator(validator, data);
+
+        installModule(MODULE_TYPE_VALIDATOR, validator, data);
         require(_hasValidators(), NoValidatorInstalled());
 
         emit AccountInitialized(_entryPoint);
@@ -141,7 +142,7 @@ contract MyAccount is IAccount, IAccountExecute, IERC7579Account, ModuleManager,
      * @dev only supports validator, exector, fallback
      * @dev Modified from https://github.com/bcnmy/nexus
      */
-    function installModule(uint256 moduleTypeId, address module, bytes calldata initData) external payable {
+    function installModule(uint256 moduleTypeId, address module, bytes calldata initData) public payable {
         if (module == address(0)) revert ModuleAddressCanNotBeZero();
         if (moduleTypeId == MODULE_TYPE_VALIDATOR) {
             _installValidator(module, initData);
