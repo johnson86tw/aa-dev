@@ -50,10 +50,10 @@ const callData = abiCoder.encode(['bytes32', 'bytes'], [modeCode, encodedData])
 
 // Build gas
 const callGasLimit = 100_000n
-const verificationGasLimit = 1_000_000_000_000n
-const preVerificationGas = 1_000_000_000_000n
-const maxPriorityFeePerGas = 1_000_000_000_000n
-const maxFeePerGas = 1_000_000_000_000n
+const verificationGasLimit = 100_000n
+const preVerificationGas = 50_000n
+const maxPriorityFeePerGas = 4_000_000n
+const maxFeePerGas = 6_000_000_000n
 
 const userOp: UserOperation = {
 	sender,
@@ -78,15 +78,27 @@ console.log('userOpHash', userOpHash)
 
 console.log('signing message... by', signer.address)
 const signature = await signer.signMessage(getBytes(userOpHash))
-console.log('raw signature', signature)
-
-const userOpSignature = concat([ecdsaValidator, signature])
-userOp.signature = userOpSignature
+userOp.signature = signature
 
 console.log('userOp', userOp)
 
+// Get required prefund
+const requiredGas =
+	BigInt(userOp.verificationGasLimit) +
+	BigInt(userOp.callGasLimit) +
+	(BigInt(userOp.paymasterVerificationGasLimit) || 0n) +
+	(BigInt(userOp.paymasterPostOpGasLimit) || 0n) +
+	BigInt(userOp.preVerificationGas)
+
+const requiredPrefund = requiredGas * BigInt(userOp.maxFeePerGas)
+console.log('requiredPrefund in ether', formatEther(requiredPrefund))
+
 const senderBalance = await provider.getBalance(sender)
 console.log('sender balance', formatEther(senderBalance))
+
+if (senderBalance < requiredPrefund) {
+	throw new Error(`Sender address does not have enough native tokens`)
+}
 
 const res = await fetch(BUNDLER_URL, {
 	method: 'post',
