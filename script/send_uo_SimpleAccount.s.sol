@@ -7,6 +7,7 @@ import "@account-abstraction/contracts/core/EntryPoint.sol";
 import "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import "@account-abstraction/contracts/samples/SimpleAccount.sol";
+import {AAUtils} from "../test/utils/AAUtils.sol";
 
 // forge script --rpc-url $sepolia script/SendUserOps.s.sol --broadcast
 
@@ -24,9 +25,9 @@ contract SendUserOps is Script {
             nonce: IEntryPoint(entryPoint).getNonce(account, 0),
             initCode: bytes(""),
             callData: bytes(""),
-            accountGasLimits: pack(80_000, 80_000),
+            accountGasLimits: AAUtils.pack(80_000, 80_000),
             preVerificationGas: 0,
-            gasFees: pack(1322204, 6900385),
+            gasFees: AAUtils.pack(1322204, 6900385),
             paymasterAndData: bytes(""),
             signature: bytes("")
         });
@@ -41,7 +42,7 @@ contract SendUserOps is Script {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, MessageHashUtils.toEthSignedMessageHash(userOpHash));
         userOp.signature = abi.encodePacked(r, s, v);
 
-        logUserOp(userOp);
+        AAUtils.logUserOp(userOp);
 
         PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = userOp;
@@ -55,48 +56,5 @@ contract SendUserOps is Script {
         IEntryPoint(entryPoint).handleOps(ops, payable(owner));
 
         vm.stopBroadcast();
-    }
-
-    // ========================== Utils ============================
-
-    function pack(uint256 a, uint256 b) internal pure returns (bytes32) {
-        return bytes32((a << 128) | b);
-    }
-
-    function logUserOp(PackedUserOperation memory userOp) internal pure {
-        console.log(userOp.sender);
-        console.log(userOp.nonce);
-        console.logBytes(userOp.initCode);
-        console.logBytes(userOp.callData);
-        console.logBytes32(userOp.accountGasLimits);
-        console.log(toHexString(userOp.preVerificationGas));
-        console.logBytes32(userOp.gasFees);
-        console.logBytes(userOp.paymasterAndData);
-        console.logBytes(userOp.signature);
-    }
-
-    function toHexDigit(uint8 d) internal pure returns (bytes1) {
-        if (0 <= d && d <= 9) {
-            return bytes1(uint8(bytes1("0")) + d);
-        } else if (10 <= uint8(d) && uint8(d) <= 15) {
-            return bytes1(uint8(bytes1("a")) + d - 10);
-        }
-        revert("Invalid hex digit");
-    }
-
-    function toHexString(uint256 a) internal pure returns (string memory) {
-        uint256 count = 0;
-        uint256 b = a;
-        while (b != 0) {
-            count++;
-            b /= 16;
-        }
-        bytes memory res = new bytes(count);
-        for (uint256 i = 0; i < count; ++i) {
-            b = a % 16;
-            res[count - i - 1] = toHexDigit(uint8(b));
-            a /= 16;
-        }
-        return string.concat("0x", string(res));
     }
 }
