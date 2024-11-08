@@ -1,6 +1,5 @@
-import { concat, ethers, formatEther, getBytes, parseEther, toBeHex, Wallet, zeroPadBytes, zeroPadValue } from 'ethers'
+import { concat, ethers, formatEther, getBytes, Interface, parseEther, toBeHex, Wallet, zeroPadValue } from 'ethers'
 import { createEntryPoint, ENTRYPOINT, fetchUserOpHash, getHandleOpsCalldata, type UserOperation } from './utils'
-import { Interface } from 'ethers'
 
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
 	throw new Error('Missing .env')
@@ -40,9 +39,7 @@ const execution = {
 	value: parseEther('0.001'),
 	data: '0x',
 }
-
 const executionCalldata = concat([execution.target, zeroPadValue(toBeHex(execution.value), 32), execution.data])
-console.log('executionCalldata', executionCalldata)
 
 const IMyAccount = new Interface(['function execute(bytes32 mode, bytes calldata executionCalldata)'])
 const callData = IMyAccount.encodeFunctionData('execute', [modeCode, executionCalldata])
@@ -67,10 +64,9 @@ const currentGasPrice = (
 const maxFeePerGas = currentGasPrice.standard.maxFeePerGas
 const maxPriorityFeePerGas = currentGasPrice.standard.maxPriorityFeePerGas
 
-// Build gas
-const callGasLimit = 100_000n
-const verificationGasLimit = 100_000n
-const preVerificationGas = 50_000n
+// make sure the length is same as the actual one. it must be set to call eth_estimateUserOperationGas
+const dummySignature =
+	'0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c'
 
 const userOp: UserOperation = {
 	sender,
@@ -78,24 +74,17 @@ const userOp: UserOperation = {
 	factory: null,
 	factoryData: '0x',
 	callData,
-	callGasLimit: toBeHex(callGasLimit),
-	verificationGasLimit: toBeHex(verificationGasLimit),
-	preVerificationGas: toBeHex(preVerificationGas),
-	maxFeePerGas: maxFeePerGas,
-	maxPriorityFeePerGas: maxPriorityFeePerGas,
+	callGasLimit: '0x0',
+	verificationGasLimit: '0x0',
+	preVerificationGas: '0x0',
+	maxFeePerGas,
+	maxPriorityFeePerGas,
 	paymaster: null,
-	paymasterVerificationGasLimit: toBeHex(0n),
-	paymasterPostOpGasLimit: toBeHex(0n),
+	paymasterVerificationGasLimit: '0x0',
+	paymasterPostOpGasLimit: '0x0',
 	paymasterData: null,
-	signature: '0x',
+	signature: dummySignature,
 }
-
-let userOpHash = await fetchUserOpHash(userOp, provider)
-console.log('userOpHash', userOpHash)
-
-console.log('signing message... by', signer.address)
-let signature = await signer.signMessage(getBytes(userOpHash))
-userOp.signature = signature
 
 const estimateGas = (
 	await (
@@ -113,25 +102,22 @@ const estimateGas = (
 		})
 	).json()
 ).result
-console.log(estimateGas)
+console.log('estimateGas', estimateGas)
 
-// why cannot modify? it complaint AA24 signature error ??
-// userOp.preVerificationGas = estimateGas.preVerificationGas
-// userOp.verificationGasLimit = estimateGas.verificationGasLimit
-// userOp.callGasLimit = estimateGas.callGasLimit
-// userOp.paymasterVerificationGasLimit = estimateGas.paymasterVerificationGasLimit
-// userOp.paymasterPostOpGasLimit = estimateGas.paymasterPostOpGasLimit
+userOp.preVerificationGas = estimateGas.preVerificationGas
+userOp.verificationGasLimit = estimateGas.verificationGasLimit
+userOp.callGasLimit = estimateGas.callGasLimit
+userOp.paymasterVerificationGasLimit = estimateGas.paymasterVerificationGasLimit
+userOp.paymasterPostOpGasLimit = estimateGas.paymasterPostOpGasLimit
 
-// sign again!
-const realUserOpHash = await fetchUserOpHash(userOp, provider)
-console.log('userOpHash', realUserOpHash)
+// Sign signature
+const userOpHash = await fetchUserOpHash(userOp, provider)
+console.log('userOpHash', userOpHash)
 
-console.log('signing message... by', signer.address)
-const realSignature = await signer.signMessage(getBytes(realUserOpHash))
+console.log('signing userOpHash... by', signer.address)
+const signature = await signer.signMessage(getBytes(userOpHash))
 
-userOp.signature = realSignature
-
-// ==================================================================================================
+userOp.signature = signature
 
 console.log('userOp', userOp)
 
@@ -156,17 +142,49 @@ if (senderBalance < requiredPrefund) {
 	throw new Error(`Sender address does not have enough native tokens`)
 }
 
-const res = await fetch(BUNDLER_URL, {
-	method: 'post',
-	headers: {
-		'Content-Type': 'application/json',
-	},
-	body: JSON.stringify({
-		jsonrpc: '2.0',
-		method: 'eth_sendUserOperation',
-		id: 1,
-		params: [userOp, ENTRYPOINT],
-	}),
-})
-const result = await res.json()
-console.log(result)
+const res = await (
+	await fetch(BUNDLER_URL, {
+		method: 'post',
+		headers: {
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({
+			jsonrpc: '2.0',
+			method: 'eth_sendUserOperation',
+			id: 1,
+			params: [userOp, ENTRYPOINT],
+		}),
+	})
+).json()
+
+if (res.result) {
+	let result = null
+	console.log('Waiting for transaction receipt...')
+
+	while (result === null) {
+		result = (
+			await (
+				await fetch(BUNDLER_URL, {
+					method: 'post',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({
+						jsonrpc: '2.0',
+						method: 'eth_getUserOperationReceipt',
+						id: 1,
+						params: [userOpHash],
+					}),
+				})
+			).json()
+		).result
+
+		if (result === null) {
+			await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second
+			console.log('Still waiting for receipt...')
+		}
+	}
+
+	console.log('Receipt', result)
+	console.log('transactionHash', result.receipt.transactionHash)
+}

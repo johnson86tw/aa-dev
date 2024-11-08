@@ -6,7 +6,7 @@ export const ENTRYPOINT = '0x0000000071727De22E5E9d8BAf0edAc6f37da032' // v0.7
 
 export type UserOperation = {
 	sender: string
-	nonce: string | number
+	nonce: string
 	factory: string | null
 	factoryData: string
 	callData: string
@@ -35,42 +35,26 @@ export function createEntryPoint(providerOrSigner: JsonRpcProvider | Signer) {
 }
 
 export async function fetchUserOpHash(userOp: UserOperation, provider: JsonRpcProvider) {
-	const packedUserOp = {
-		sender: userOp.sender,
-		nonce: userOp.nonce,
-		initCode: userOp.factory && userOp.factoryData ? concat([userOp.factory, userOp.factoryData]) : '0x',
-		callData: userOp.callData,
-		accountGasLimits: concat([
-			zeroPadValue(toBeHex(userOp.callGasLimit), 16),
-			zeroPadValue(toBeHex(userOp.verificationGasLimit), 16),
-		]),
-		preVerificationGas: userOp.preVerificationGas,
-		gasFees: concat([
-			zeroPadValue(toBeHex(userOp.maxPriorityFeePerGas), 16),
-			zeroPadValue(toBeHex(userOp.maxFeePerGas), 16),
-		]),
-		paymasterAndData:
-			userOp.paymaster && userOp.paymasterData ? concat([userOp.paymaster, userOp.paymasterData]) : '0x',
-		signature: '0x',
-	}
-
 	const entrypoint = createEntryPoint(provider)
-	return await entrypoint.getUserOpHash(packedUserOp)
+	return await entrypoint.getUserOpHash(packUserOp(userOp))
 }
 
 export function getHandleOpsCalldata(userOp: UserOperation, beneficiary: string) {
 	const iEntryPoint = getIEntryPoint()
+	return iEntryPoint.encodeFunctionData('handleOps', [[packUserOp(userOp)], beneficiary])
+}
 
-	const packedUserOp = {
+export function packUserOp(userOp: UserOperation) {
+	return {
 		sender: userOp.sender,
 		nonce: userOp.nonce,
 		initCode: userOp.factory && userOp.factoryData ? concat([userOp.factory, userOp.factoryData]) : '0x',
 		callData: userOp.callData,
 		accountGasLimits: concat([
-			zeroPadValue(toBeHex(userOp.callGasLimit), 16),
 			zeroPadValue(toBeHex(userOp.verificationGasLimit), 16),
+			zeroPadValue(toBeHex(userOp.callGasLimit), 16),
 		]),
-		preVerificationGas: userOp.preVerificationGas,
+		preVerificationGas: zeroPadValue(toBeHex(userOp.preVerificationGas), 32),
 		gasFees: concat([
 			zeroPadValue(toBeHex(userOp.maxPriorityFeePerGas), 16),
 			zeroPadValue(toBeHex(userOp.maxFeePerGas), 16),
@@ -79,6 +63,4 @@ export function getHandleOpsCalldata(userOp: UserOperation, beneficiary: string)
 			userOp.paymaster && userOp.paymasterData ? concat([userOp.paymaster, userOp.paymasterData]) : '0x',
 		signature: userOp.signature,
 	}
-
-	return iEntryPoint.encodeFunctionData('handleOps', [[packedUserOp], beneficiary])
 }
