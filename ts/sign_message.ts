@@ -1,4 +1,4 @@
-import { concat, Contract, ethers, getBytes, hashMessage, Interface, keccak256, toUtf8Bytes, Wallet } from 'ethers'
+import { Contract, ethers, getBytes, hashMessage, Interface, keccak256, toUtf8Bytes, Wallet } from 'ethers'
 
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
 	throw new Error('Missing .env')
