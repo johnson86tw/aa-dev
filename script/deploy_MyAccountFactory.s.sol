@@ -5,6 +5,8 @@ import {Script, console} from "forge-std/Script.sol";
 import {MyAccountFactory} from "../src/sa/MyAccountFactory.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 
+// forge script --rpc-url $sepolia script/deploy_MyAccountFactory.s.sol --account dev --verify --broadcast
+
 contract DeployMyAccountFactoryScript is Script {
     MyAccountFactory public factory;
 
