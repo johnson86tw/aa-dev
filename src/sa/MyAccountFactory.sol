@@ -9,7 +9,10 @@ import "./MyAccount.sol";
 contract MyAccountFactory {
     MyAccount public immutable accountImplementation;
 
-    constructor() {
+    address public immutable entryPoint;
+
+    constructor(IEntryPoint _entryPoint) {
+        entryPoint = address(_entryPoint);
         accountImplementation = new MyAccount();
     }
 
@@ -28,7 +31,7 @@ contract MyAccountFactory {
         ret = MyAccount(
             payable(
                 new ERC1967Proxy{salt: bytes32(salt)}(
-                    address(accountImplementation), abi.encodeCall(MyAccount.initialize, (validator, data))
+                    address(accountImplementation), abi.encodeCall(MyAccount.initialize, (entryPoint, validator, data))
                 )
             )
         );
@@ -43,7 +46,10 @@ contract MyAccountFactory {
             keccak256(
                 abi.encodePacked(
                     type(ERC1967Proxy).creationCode,
-                    abi.encode(address(accountImplementation), abi.encodeCall(MyAccount.initialize, (validator, data)))
+                    abi.encode(
+                        address(accountImplementation),
+                        abi.encodeCall(MyAccount.initialize, (entryPoint, validator, data))
+                    )
                 )
             )
         );

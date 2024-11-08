@@ -3,6 +3,7 @@ pragma solidity 0.8.27;
 
 import "@account-abstraction/contracts/interfaces/IAccount.sol";
 import "@account-abstraction/contracts/interfaces/IAccountExecute.sol";
+import "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 
 import {IERC7579Account, Execution} from "../interfaces/IERC7579Account.sol";
 import {ModuleManager, IValidator} from "../core/ModuleManager.sol";
@@ -42,16 +43,25 @@ contract MyAccount is IAccount, IAccountExecute, IERC7579Account, ModuleManager,
     error UnsupportedCallType(CallType callType);
     error UnsupportedExecType(ExecType execType);
 
-    function initialize(address validator, bytes calldata data) public {
+    address _entryPoint;
+
+    function entryPoint() public view override returns (address) {
+        return _entryPoint;
+    }
+
+    // @todo can only be called once
+    function initialize(address anEntryPoint, address validator, bytes calldata data) public {
+        _entryPoint = anEntryPoint;
         _initModuleManager();
         _installValidator(validator, data);
         require(_hasValidators(), NoValidatorInstalled());
+
+        emit AccountInitialized(_entryPoint);
     }
 
     /**
      * @inheritdoc IAccount
-     *
-     * nonce: | 4 bytes nothing | 20 bytes validator address | 8 bytes sequence |
+     * @dev nonce: | 4 bytes nothing | 20 bytes validator address | 8 bytes sequence |
      */
     function validateUserOp(PackedUserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
         external
@@ -66,7 +76,7 @@ contract MyAccount is IAccount, IAccountExecute, IERC7579Account, ModuleManager,
             validator := shr(96, shl(32, nonce))
         }
 
-        if (_isValidatorInstalled(validator)) {
+        if (!_isValidatorInstalled(validator)) {
             revert ValidatorNotInstalled(validator);
         }
 

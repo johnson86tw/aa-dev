@@ -1,12 +1,20 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.27;
 
-import "forge-std/Test.sol";
 import "../src/modules/ECDSAValidator.sol";
 import "../src/sa/MyAccountFactory.sol";
 import "../src/sa/MyAccount.sol";
+import "../src/lib/ModeLib.sol";
+import "../src/lib/ExecutionLib.sol";
+import "./utils/AAUtils.sol";
+import "./utils/AATest.sol";
 
-contract MyAccountTest is Test {
+import "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+
+contract MyAccountTest is AATest {
+    using ExecutionLib for bytes;
+
     ECDSAValidator public validator;
     MyAccountFactory public factory;
     MyAccount public account;
@@ -14,7 +22,7 @@ contract MyAccountTest is Test {
 
     function setUp() public {
         validator = new ECDSAValidator();
-        factory = new MyAccountFactory();
+        factory = new MyAccountFactory(entryPoint);
         account = factory.createAccount(1, address(validator), abi.encodePacked(alice));
     }
 
@@ -22,6 +30,10 @@ contract MyAccountTest is Test {
         address expected = factory.getAddress(1, address(validator), abi.encodePacked(alice));
         MyAccount account = factory.createAccount(1, address(validator), abi.encodePacked(alice));
         assertEq(address(account), expected);
+
+        // check validator installed
+        bool isValidatorInstalled = account.isModuleInstalled(MODULE_TYPE_VALIDATOR, address(validator), "");
+        assertEq(isValidatorInstalled, true);
     }
 
     /**
@@ -44,5 +56,47 @@ contract MyAccountTest is Test {
         bytes4 result = account.isValidSignature(messageHash, sig);
         console.logBytes4(result);
         assertEq(result, bytes4(0xffffffff));
+    }
+
+    function testSendUserOp() public {
+        // prefund
+        deal(address(account), 1 ether);
+        // recipient
+        address bob = address(0xdead);
+
+        uint192 nonceKey = uint192(bytes24(abi.encodePacked(bytes4(0), address(validator))));
+        uint256 nonce = IEntryPoint(entryPoint).getNonce(address(account), nonceKey);
+
+        PackedUserOperation memory userOp = PackedUserOperation({
+            sender: address(account),
+            nonce: nonce,
+            initCode: bytes(""),
+            callData: bytes(""),
+            accountGasLimits: AAUtils.pack(200_000, 80_000),
+            preVerificationGas: 0,
+            gasFees: AAUtils.pack(1322204, 6900385),
+            paymasterAndData: bytes(""),
+            signature: bytes("")
+        });
+
+        ModeCode modeCode =
+            ModeLib.encode(CALLTYPE_SINGLE, EXECTYPE_DEFAULT, MODE_DEFAULT, ModePayload.wrap(bytes22(0)));
+
+        bytes memory executionCalldata = ExecutionLib.encodeSingle(bob, 0.01 ether, "");
+        bytes memory callData = abi.encodeCall(MyAccount.execute, (modeCode, executionCalldata));
+        userOp.callData = callData;
+
+        bytes32 userOpHash = IEntryPoint(entryPoint).getUserOpHash(userOp);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(0xbeef, MessageHashUtils.toEthSignedMessageHash(userOpHash));
+        userOp.signature = abi.encodePacked(r, s, v);
+
+        AAUtils.logUserOp(userOp);
+
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+        ops[0] = userOp;
+
+        IEntryPoint(entryPoint).handleOps(ops, payable(alice));
+
+        assertEq(bob.balance, 0.01 ether);
     }
 }

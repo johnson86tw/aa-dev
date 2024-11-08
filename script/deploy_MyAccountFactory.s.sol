@@ -3,6 +3,7 @@ pragma solidity ^0.8.13;
 
 import {Script, console} from "forge-std/Script.sol";
 import {MyAccountFactory} from "../src/sa/MyAccountFactory.sol";
+import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 
 contract DeployMyAccountFactoryScript is Script {
     MyAccountFactory public factory;
@@ -12,7 +13,7 @@ contract DeployMyAccountFactoryScript is Script {
     function run() public {
         vm.startBroadcast();
 
-        factory = new MyAccountFactory();
+        factory = new MyAccountFactory(IEntryPoint(0x0000000071727De22E5E9d8BAf0edAc6f37da032));
 
         vm.stopBroadcast();
     }
