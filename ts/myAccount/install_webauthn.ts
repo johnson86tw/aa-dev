@@ -1,5 +1,6 @@
 import { concat, ethers, formatEther, getBytes, Interface, parseEther, toBeHex, Wallet, zeroPadValue } from 'ethers'
 import { createEntryPoint, ENTRYPOINT, fetchUserOpHash, getHandleOpsCalldata, type UserOperation } from './utils'
+import { AbiCoder } from 'ethers'
 
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
 	throw new Error('Missing .env')
@@ -34,15 +35,30 @@ const nonce = toBeHex(await entrypoint.getNonce(sender, nonceKey))
  * |--------------------------------------------------------------------|
  */
 const modeCode = concat(['0x00', '0x00', '0x00000000', '0x00000000', '0x00000000000000000000000000000000000000000000'])
-const execution = {
-	target: '0xd78B5013757Ea4A7841811eF770711e6248dC282', // owner
-	value: parseEther('0.001'),
-	data: '0x',
-}
-const executionCalldata = concat([execution.target, zeroPadValue(toBeHex(execution.value), 32), execution.data])
 
-const IMyAccount = new Interface(['function execute(bytes32 mode, bytes calldata executionCalldata)'])
-const callData = IMyAccount.encodeFunctionData('execute', [modeCode, executionCalldata])
+// Build callData to install WebAuthn validator module
+// sepolia WebAuthnValidator: 0xf943a0a7f6a707a18773f2e62f66dbc03c1fcd00
+// function installModule(uint256 moduleTypeId, address module, bytes calldata initData)
+// [1, 0xf943a0a7f6a707a18773f2e62f66dbc03c1fcd00, abi.encode(tuple(uint256 pubKeyX, uint256 pubKeyY), bytes32 authenticatorIdHash)]
+
+const pubKeyX = 60892748959872516896188013384173876983319747466189122437265594598084775757749n
+const pubKeyY = 24226848566609178530681690498727697443610042742567999018652094720544956264029n
+const authenticatorIdHash = '0x730e69129559f38e0bc8c29bf3847f41313a0e52d07423373d09970367537e5b'
+
+const abiCoder = new AbiCoder()
+
+const iMyAccount = new Interface([
+	'function installModule(uint256 moduleTypeId, address module, bytes calldata initData)',
+])
+
+const callData = iMyAccount.encodeFunctionData('installModule', [
+	1,
+	'0xf943a0a7f6a707a18773f2e62f66dbc03c1fcd00',
+	abiCoder.encode(
+		['tuple(uint256 pubKeyX, uint256 pubKeyY)', 'bytes32'],
+		[{ pubKeyX, pubKeyY }, authenticatorIdHash],
+	),
+])
 
 const currentGasPrice = (
 	await (

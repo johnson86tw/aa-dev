@@ -1,0 +1,94 @@
+import { ethers, formatEther } from 'ethers'
+import { ENTRYPOINT, getHandleOpsCalldata, type UserOperation } from './utils'
+
+if (!process.env.PIMLICO_API_KEY || !process.env.sepolia) {
+	throw new Error('Missing .env')
+}
+
+const RPC_URL = process.env.sepolia
+const PIMLICO_API_KEY = process.env.PIMLICO_API_KEY
+
+const BUNDLER_URL = `https://api.pimlico.io/v2/11155111/rpc?apikey=${PIMLICO_API_KEY}`
+
+const sender = '0x67CE34Bc421060B8594CdD361cE201868845045b' // MyAccount
+
+const provider = new ethers.JsonRpcProvider(RPC_URL)
+
+// update data from passkey-frontend
+const userOpHash = '0xe0e7a6b581523c1cbb50f5fd10d016a1d11fba23ee80057b9d718a3f995f4adc'
+const userOp: UserOperation = JSON.parse(
+	'{"sender":"0x67CE34Bc421060B8594CdD361cE201868845045b","nonce":"0xf943a0a7f6a707a18773f2e62f66dbc03c1fcd000000000000000000","factory":null,"factoryData":"0x","callData":"0xe9ae5c53000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000034d78b5013757ea4a7841811ef770711e6248dc28200000000000000000000000000000000000000000000000000038d7ea4c68000000000000000000000000000","callGasLimit":"0x1f072","verificationGasLimit":"0x7981d1","preVerificationGas":"0x10150","maxFeePerGas":"0xa0984b93","maxPriorityFeePerGas":"0x367e21","paymaster":null,"paymasterVerificationGasLimit":"0x0","paymasterPostOpGasLimit":"0x0","paymasterData":null,"signature":"0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"}',
+)
+userOp.signature =
+	'0x00000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001200000000000000000000000000000000000000000000000000000000000000001cba7d60d572c0165c497e065195980a693ec5e801147312f3e2e9377f3b7b0925b4fddbef500e56137a692fd613d921a2852ca7e0cd9487ff5209a074ff164af0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002549960de5880e8c687434170f6476605b8fe4aeb9a28632c7995cf3ba831d97631d0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000867b2274797065223a22776562617574686e2e676574222c226368616c6c656e6765223a22344f656d745946535042793755505839454e41576f64456675695075674156376e58474b50356c66537477222c226f726967696e223a22687474703a2f2f6c6f63616c686f73743a35313733222c2263726f73734f726967696e223a66616c73657d0000000000000000000000000000000000000000000000000000'
+
+// tenderly debug purpose
+const handlesOpsCalldata = getHandleOpsCalldata(userOp, sender)
+console.log('handlesOpsCalldata', handlesOpsCalldata)
+
+// Get required prefund
+const requiredGas =
+	BigInt(userOp.verificationGasLimit) +
+	BigInt(userOp.callGasLimit) +
+	(BigInt(userOp.paymasterVerificationGasLimit) || 0n) +
+	(BigInt(userOp.paymasterPostOpGasLimit) || 0n) +
+	BigInt(userOp.preVerificationGas)
+
+const requiredPrefund = requiredGas * BigInt(userOp.maxFeePerGas)
+console.log('requiredPrefund in ether', formatEther(requiredPrefund))
+
+const senderBalance = await provider.getBalance(sender)
+console.log('sender balance', formatEther(senderBalance))
+
+if (senderBalance < requiredPrefund) {
+	throw new Error(`Sender address does not have enough native tokens`)
+}
+
+const res = await (
+	await fetch(BUNDLER_URL, {
+		method: 'post',
+		headers: {
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({
+			jsonrpc: '2.0',
+			method: 'eth_sendUserOperation',
+			id: 1,
+			params: [userOp, ENTRYPOINT],
+		}),
+	})
+).json()
+
+if (res.result) {
+	let result = null
+	console.log('Waiting for transaction receipt...')
+
+	while (result === null) {
+		result = (
+			await (
+				await fetch(BUNDLER_URL, {
+					method: 'post',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({
+						jsonrpc: '2.0',
+						method: 'eth_getUserOperationReceipt',
+						id: 1,
+						params: [userOpHash],
+					}),
+				})
+			).json()
+		).result
+
+		if (result === null) {
+			await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second
+			console.log('Still waiting for receipt...')
+		}
+	}
+
+	console.log('Receipt', result)
+	console.log('transactionHash', result.receipt.transactionHash)
+} else {
+	console.log(res)
+}

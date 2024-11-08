@@ -12,7 +12,7 @@ const PIMLICO_API_KEY = process.env.PIMLICO_API_KEY
 const BUNDLER_URL = `https://api.pimlico.io/v2/11155111/rpc?apikey=${PIMLICO_API_KEY}`
 
 const sender = '0x67CE34Bc421060B8594CdD361cE201868845045b' // MyAccount
-const ecdsaValidator = '0xd577C0746c19DeB788c0D698EcAf66721DC2F7A4'
+const webauthnValidator = '0xf943a0a7f6a707a18773f2e62f66dbc03c1fcd00'
 
 const provider = new ethers.JsonRpcProvider(RPC_URL)
 const signer = new Wallet(PRIVATE_KEY, provider)
@@ -20,7 +20,7 @@ const signer = new Wallet(PRIVATE_KEY, provider)
 const entrypoint = createEntryPoint(provider)
 
 // Build nonce
-const nonceKey = zeroPadValue(ecdsaValidator, 24)
+const nonceKey = zeroPadValue(webauthnValidator, 24)
 const nonce = toBeHex(await entrypoint.getNonce(sender, nonceKey))
 
 /**
@@ -65,8 +65,7 @@ const maxFeePerGas = currentGasPrice.standard.maxFeePerGas
 const maxPriorityFeePerGas = currentGasPrice.standard.maxPriorityFeePerGas
 
 // make sure the length is same as the actual one. it must be set to call eth_estimateUserOperationGas
-const dummySignature =
-	'0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c'
+const dummySignature = '0x' + '0'.repeat(960)
 
 const userOp: UserOperation = {
 	sender,
@@ -105,7 +104,7 @@ const estimateGas = (
 console.log('estimateGas', estimateGas)
 
 userOp.preVerificationGas = estimateGas.preVerificationGas
-userOp.verificationGasLimit = estimateGas.verificationGasLimit
+userOp.verificationGasLimit = toBeHex(7_963_089n)
 userOp.callGasLimit = estimateGas.callGasLimit
 userOp.paymasterVerificationGasLimit = estimateGas.paymasterVerificationGasLimit
 userOp.paymasterPostOpGasLimit = estimateGas.paymasterPostOpGasLimit
@@ -113,80 +112,4 @@ userOp.paymasterPostOpGasLimit = estimateGas.paymasterPostOpGasLimit
 // Sign signature
 const userOpHash = await fetchUserOpHash(userOp, provider)
 console.log('userOpHash', userOpHash)
-
-console.log('signing userOpHash... by', signer.address)
-const signature = await signer.signMessage(getBytes(userOpHash))
-
-userOp.signature = signature
-
-console.log('userOp', userOp)
-
-const handlesOpsCalldata = getHandleOpsCalldata(userOp, sender)
-console.log('handlesOpsCalldata', handlesOpsCalldata)
-
-// Get required prefund
-const requiredGas =
-	BigInt(userOp.verificationGasLimit) +
-	BigInt(userOp.callGasLimit) +
-	(BigInt(userOp.paymasterVerificationGasLimit) || 0n) +
-	(BigInt(userOp.paymasterPostOpGasLimit) || 0n) +
-	BigInt(userOp.preVerificationGas)
-
-const requiredPrefund = requiredGas * BigInt(userOp.maxFeePerGas)
-console.log('requiredPrefund in ether', formatEther(requiredPrefund))
-
-const senderBalance = await provider.getBalance(sender)
-console.log('sender balance', formatEther(senderBalance))
-
-if (senderBalance < requiredPrefund) {
-	throw new Error(`Sender address does not have enough native tokens`)
-}
-
-const res = await (
-	await fetch(BUNDLER_URL, {
-		method: 'post',
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify({
-			jsonrpc: '2.0',
-			method: 'eth_sendUserOperation',
-			id: 1,
-			params: [userOp, ENTRYPOINT],
-		}),
-	})
-).json()
-
-if (res.result) {
-	let result = null
-	console.log('Waiting for transaction receipt...')
-
-	while (result === null) {
-		result = (
-			await (
-				await fetch(BUNDLER_URL, {
-					method: 'post',
-					headers: {
-						'Content-Type': 'application/json',
-					},
-					body: JSON.stringify({
-						jsonrpc: '2.0',
-						method: 'eth_getUserOperationReceipt',
-						id: 1,
-						params: [userOpHash],
-					}),
-				})
-			).json()
-		).result
-
-		if (result === null) {
-			await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second
-			console.log('Still waiting for receipt...')
-		}
-	}
-
-	console.log('Receipt', result)
-	console.log('transactionHash', result.receipt.transactionHash)
-} else {
-	console.log(res)
-}
+console.log('userOp json', JSON.stringify(userOp))
