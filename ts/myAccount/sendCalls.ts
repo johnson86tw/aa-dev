@@ -27,17 +27,19 @@ const signer = new Wallet(PRIVATE_KEY, provider)
 const entrypoint = createEntryPoint(provider)
 const bundler = new Bundler(BUNDLER_URL)
 
-async function sendCalls(params: {
+type SendCallsParams = {
 	version: string
 	from: `0x${string}`
 	calls: {
-		to?: `0x${string}`
-		data?: `0x${string}`
-		value?: `0x${string}`
-		chainId?: `0x${string}`
+		to?: `0x${string}` | undefined
+		data?: `0x${string}` | undefined
+		value?: `0x${string}` | undefined // Hex value
+		chainId?: `0x${string}` | undefined // Hex chain id
 	}[]
-	capabilities?: Record<string, any>
-}): Promise<string> {
+	capabilities?: Record<string, any> | undefined
+}
+
+export async function handle_wallet_sendCalls(params: SendCallsParams): Promise<string> {
 	// Validate all calls are on the same chain
 	const chainIds = new Set(params.calls.map(call => call.chainId))
 	if (chainIds.size > 1) {
