@@ -64,3 +64,28 @@ export function packUserOp(userOp: UserOperation) {
 		signature: userOp.signature,
 	}
 }
+
+export class Bundler {
+	private bundlerUrl: string
+
+	constructor(bundlerUrl: string) {
+		this.bundlerUrl = bundlerUrl
+	}
+
+	async request(method: string, params: any[] = []) {
+		const response = await fetch(this.bundlerUrl, {
+			method: 'post',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				jsonrpc: '2.0',
+				method,
+				id: 1,
+				params,
+			}),
+		})
+		const data = await response.json()
+		return data.result
+	}
+}

@@ -1,5 +1,12 @@
 import { concat, ethers, formatEther, getBytes, Interface, parseEther, toBeHex, Wallet, zeroPadValue } from 'ethers'
-import { createEntryPoint, ENTRYPOINT, fetchUserOpHash, getHandleOpsCalldata, type UserOperation } from './utils'
+import {
+	createEntryPoint,
+	ENTRYPOINT,
+	fetchUserOpHash,
+	getHandleOpsCalldata,
+	Bundler,
+	type UserOperation,
+} from './utils'
 
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
 	throw new Error('Missing .env')
@@ -44,23 +51,9 @@ const executionCalldata = concat([execution.target, zeroPadValue(toBeHex(executi
 const IMyAccount = new Interface(['function execute(bytes32 mode, bytes calldata executionCalldata)'])
 const callData = IMyAccount.encodeFunctionData('execute', [modeCode, executionCalldata])
 
-const currentGasPrice = (
-	await (
-		await fetch(BUNDLER_URL, {
-			method: 'post',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({
-				jsonrpc: '2.0',
-				method: 'pimlico_getUserOperationGasPrice',
-				id: 1,
-				params: [],
-			}),
-		})
-	).json()
-).result
+const bundler = new Bundler(BUNDLER_URL)
 
+const currentGasPrice = await bundler.request('pimlico_getUserOperationGasPrice')
 const maxFeePerGas = currentGasPrice.standard.maxFeePerGas
 const maxPriorityFeePerGas = currentGasPrice.standard.maxPriorityFeePerGas
 
@@ -86,22 +79,7 @@ const userOp: UserOperation = {
 	signature: dummySignature,
 }
 
-const estimateGas = (
-	await (
-		await fetch(BUNDLER_URL, {
-			method: 'post',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({
-				jsonrpc: '2.0',
-				method: 'eth_estimateUserOperationGas',
-				id: 1,
-				params: [userOp, ENTRYPOINT],
-			}),
-		})
-	).json()
-).result
+const estimateGas = await bundler.request('eth_estimateUserOperationGas', [userOp, ENTRYPOINT])
 console.log('estimateGas', estimateGas)
 
 userOp.preVerificationGas = estimateGas.preVerificationGas
@@ -142,45 +120,17 @@ if (senderBalance < requiredPrefund) {
 	throw new Error(`Sender address does not have enough native tokens`)
 }
 
-const res = await (
-	await fetch(BUNDLER_URL, {
-		method: 'post',
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify({
-			jsonrpc: '2.0',
-			method: 'eth_sendUserOperation',
-			id: 1,
-			params: [userOp, ENTRYPOINT],
-		}),
-	})
-).json()
+const res = await bundler.request('eth_sendUserOperation', [userOp, ENTRYPOINT])
 
-if (res.result) {
+if (res) {
 	let result = null
 	console.log('Waiting for transaction receipt...')
 
 	while (result === null) {
-		result = (
-			await (
-				await fetch(BUNDLER_URL, {
-					method: 'post',
-					headers: {
-						'Content-Type': 'application/json',
-					},
-					body: JSON.stringify({
-						jsonrpc: '2.0',
-						method: 'eth_getUserOperationReceipt',
-						id: 1,
-						params: [userOpHash],
-					}),
-				})
-			).json()
-		).result
+		result = await bundler.request('eth_getUserOperationReceipt', [userOpHash])
 
 		if (result === null) {
-			await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second
+			await new Promise(resolve => setTimeout(resolve, 1000))
 			console.log('Still waiting for receipt...')
 		}
 	}
