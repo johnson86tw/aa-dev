@@ -22,7 +22,7 @@ export type UserOperation = {
 	signature: string
 }
 
-export function getIEntryPoint() {
+export function getEntryPointInterface() {
 	return new Interface([
 		'function getUserOpHash(tuple(address sender, uint256 nonce, bytes initCode, bytes callData, bytes32 accountGasLimits, uint256 preVerificationGas, bytes32 gasFees, bytes paymasterAndData, bytes signature) userOp) external view returns (bytes32)',
 		'function getNonce(address sender, uint192 key) external view returns (uint256 nonce)',
@@ -31,7 +31,7 @@ export function getIEntryPoint() {
 }
 
 export function createEntryPoint(providerOrSigner: JsonRpcProvider | Signer) {
-	return new Contract(ENTRYPOINT, getIEntryPoint(), providerOrSigner)
+	return new Contract(ENTRYPOINT, getEntryPointInterface(), providerOrSigner)
 }
 
 export async function fetchUserOpHash(userOp: UserOperation, provider: JsonRpcProvider) {
@@ -40,8 +40,7 @@ export async function fetchUserOpHash(userOp: UserOperation, provider: JsonRpcPr
 }
 
 export function getHandleOpsCalldata(userOp: UserOperation, beneficiary: string) {
-	const iEntryPoint = getIEntryPoint()
-	return iEntryPoint.encodeFunctionData('handleOps', [[packUserOp(userOp)], beneficiary])
+	return getEntryPointInterface().encodeFunctionData('handleOps', [[packUserOp(userOp)], beneficiary])
 }
 
 export function packUserOp(userOp: UserOperation) {

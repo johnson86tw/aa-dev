@@ -1,6 +1,15 @@
 import { ethers, hexlify, randomBytes, Wallet } from 'ethers'
-import { Bundler, createEntryPoint } from './utils'
 
+import { concat, formatEther, getBytes, Interface, parseEther, toBeHex, zeroPadValue } from 'ethers'
+
+import {
+	createEntryPoint,
+	ENTRYPOINT,
+	fetchUserOpHash,
+	getHandleOpsCalldata,
+	Bundler,
+	type UserOperation,
+} from './utils'
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
 	throw new Error('Missing .env')
 }
@@ -8,10 +17,7 @@ if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE
 const PRIVATE_KEY = process.env.PRIVATE_KEY
 const RPC_URL = process.env.sepolia
 const PIMLICO_API_KEY = process.env.PIMLICO_API_KEY
-
 const BUNDLER_URL = `https://api.pimlico.io/v2/11155111/rpc?apikey=${PIMLICO_API_KEY}`
-
-const sender = '0x67CE34Bc421060B8594CdD361cE201868845045b' // MyAccount
 const ecdsaValidator = '0xd577C0746c19DeB788c0D698EcAf66721DC2F7A4'
 
 const provider = new ethers.JsonRpcProvider(RPC_URL)
@@ -22,12 +28,12 @@ const bundler = new Bundler(BUNDLER_URL)
 // ERC-5792
 export type SendCallsParams = {
 	version: string
-	from: `0x${string}`
+	from: string
 	calls: {
-		to?: `0x${string}` | undefined
-		data?: `0x${string}` | undefined
-		value?: `0x${string}` | undefined // Hex value
-		chainId?: `0x${string}` | undefined // Hex chain id
+		to?: string | undefined
+		data?: string | undefined
+		value?: string | undefined // Hex value
+		chainId?: string | undefined // Hex chain id
 	}[]
 	capabilities?: Record<string, any> | undefined
 }
@@ -37,16 +43,16 @@ export type CallsResult = {
 	status: 'PENDING' | 'CONFIRMED'
 	receipts?: {
 		logs: {
-			address: `0x${string}`
-			data: `0x${string}`
-			topics: `0x${string}`[]
+			address: string
+			data: string
+			topics: string[]
 		}[]
-		status: `0x${string}` // Hex 1 or 0 for success or failure, respectively
-		chainId: `0x${string}`
-		blockHash: `0x${string}`
-		blockNumber: `0x${string}`
-		gasUsed: `0x${string}`
-		transactionHash: `0x${string}`
+		status: string // Hex 1 or 0 for success or failure, respectively
+		chainId: string
+		blockHash: string
+		blockNumber: string
+		gasUsed: string
+		transactionHash: string
 	}[]
 }
 
@@ -87,19 +93,149 @@ export class WalletService {
 
 	private async processCalls(callId: string, params: SendCallsParams): Promise<void> {
 		try {
-			// Build and Send UserOp
+			const sender = params.from
+			/**
+			 * Build callData
+			 *
+			 * ModeCode:
+			 * |--------------------------------------------------------------------|
+			 * | CALLTYPE  | EXECTYPE  |   UNUSED   | ModeSelector  |  ModePayload  |
+			 * |--------------------------------------------------------------------|
+			 * | 1 byte    | 1 byte    |   4 bytes  | 4 bytes       |   22 bytes    |
+			 * |--------------------------------------------------------------------|
+			 */
+			const modeCode = concat([
+				'0x00',
+				'0x00',
+				'0x00000000',
+				'0x00000000',
+				'0x00000000000000000000000000000000000000000000',
+			])
 
-			// Update status
+			const executions = params.calls.map(call => ({
+				target: call.to || '0x',
+				value: BigInt(call.value || '0x0'),
+				data: call.data || '0x',
+			}))
+
+			// @todo support CALLTYPE_BATCH
+			if (executions.length > 1) {
+				throw new Error('CALLTYPE_BATCH is not supported yet')
+			}
+
+			const execution = executions[0]
+
+			const executionCalldata = concat([
+				execution.target,
+				zeroPadValue(toBeHex(execution.value), 32),
+				execution.data,
+			])
+
+			const IMyAccount = new Interface(['function execute(bytes32 mode, bytes calldata executionCalldata)'])
+			const callData = IMyAccount.encodeFunctionData('execute', [modeCode, executionCalldata])
+
+			// Build nonce
+			const nonceKey = zeroPadValue(ecdsaValidator, 24)
+			const nonce = toBeHex(await entrypoint.getNonce(sender, nonceKey))
+
+			// fetch current gas price
+			const currentGasPrice = await bundler.request('pimlico_getUserOperationGasPrice')
+			const maxFeePerGas = currentGasPrice.standard.maxFeePerGas
+			const maxPriorityFeePerGas = currentGasPrice.standard.maxPriorityFeePerGas
+
+			// make sure the length is same as the actual one. it must be set to call eth_estimateUserOperationGas
+			const dummySignature =
+				'0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c'
+
+			const userOp: UserOperation = {
+				sender,
+				nonce,
+				factory: null,
+				factoryData: '0x',
+				callData,
+				callGasLimit: '0x0',
+				verificationGasLimit: '0x0',
+				preVerificationGas: '0x0',
+				maxFeePerGas,
+				maxPriorityFeePerGas,
+				paymaster: null,
+				paymasterVerificationGasLimit: '0x0',
+				paymasterPostOpGasLimit: '0x0',
+				paymasterData: null,
+				signature: dummySignature,
+			}
+
+			// estimate gas
+			const estimateGas = await bundler.request('eth_estimateUserOperationGas', [userOp, ENTRYPOINT])
+
+			userOp.preVerificationGas = estimateGas.preVerificationGas
+			userOp.verificationGasLimit = estimateGas.verificationGasLimit
+			userOp.callGasLimit = estimateGas.callGasLimit
+			userOp.paymasterVerificationGasLimit = estimateGas.paymasterVerificationGasLimit
+			userOp.paymasterPostOpGasLimit = estimateGas.paymasterPostOpGasLimit
+
+			// Sign signature
+			const userOpHash = await fetchUserOpHash(userOp, provider)
+			console.log('userOpHash', userOpHash)
+
+			console.log('signing userOpHash... by', signer.address)
+			const signature = await signer.signMessage(getBytes(userOpHash))
+
+			userOp.signature = signature
+
+			console.log('userOp', userOp)
+
+			const handlesOpsCalldata = getHandleOpsCalldata(userOp, sender)
+			console.log('debug:handlesOpsCalldata', handlesOpsCalldata)
+
+			// Get required prefund
+			const requiredGas =
+				BigInt(userOp.verificationGasLimit) +
+				BigInt(userOp.callGasLimit) +
+				(BigInt(userOp.paymasterVerificationGasLimit) || 0n) +
+				(BigInt(userOp.paymasterPostOpGasLimit) || 0n) +
+				BigInt(userOp.preVerificationGas)
+
+			const requiredPrefund = requiredGas * BigInt(userOp.maxFeePerGas)
+			console.log('requiredPrefund in ether', formatEther(requiredPrefund))
+
+			const senderBalance = await provider.getBalance(sender)
+			console.log('sender balance', formatEther(senderBalance))
+
+			if (senderBalance < requiredPrefund) {
+				throw new Error(`Sender address does not have enough native tokens`)
+			}
+
+			const res = await bundler.request('eth_sendUserOperation', [userOp, ENTRYPOINT])
+
+			if (res) {
+				let result = null
+				console.log('Waiting for transaction receipt...')
+
+				while (result === null) {
+					result = await bundler.request('eth_getUserOperationReceipt', [userOpHash])
+
+					if (result === null) {
+						await new Promise(resolve => setTimeout(resolve, 1000))
+						console.log('Waiting for receipt...')
+					}
+				}
+
+				console.log('Receipt', result)
+				console.log('transactionHash', result.receipt.transactionHash)
+			} else {
+				console.log(res)
+			}
+
 			this.callStatuses.set(callId, {
 				status: 'CONFIRMED',
 				receipts: [],
 			})
 		} catch (error) {
 			console.error(`Failed to process calls for ${callId}:`, error)
-			// Update status
+
 			this.callStatuses.set(callId, {
 				status: 'CONFIRMED',
-				receipts: [],
 			})
 		}
 	}
