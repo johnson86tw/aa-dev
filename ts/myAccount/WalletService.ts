@@ -17,7 +17,8 @@ if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE
 const PRIVATE_KEY = process.env.PRIVATE_KEY
 const RPC_URL = process.env.sepolia
 const PIMLICO_API_KEY = process.env.PIMLICO_API_KEY
-const BUNDLER_URL = `https://api.pimlico.io/v2/11155111/rpc?apikey=${PIMLICO_API_KEY}`
+const CHAIN_ID = 11155111
+const BUNDLER_URL = `https://api.pimlico.io/v2/${CHAIN_ID}/rpc?apikey=${PIMLICO_API_KEY}`
 const ecdsaValidator = '0xd577C0746c19DeB788c0D698EcAf66721DC2F7A4'
 
 const provider = new ethers.JsonRpcProvider(RPC_URL)
@@ -176,17 +177,17 @@ export class WalletService {
 
 			// Sign signature
 			const userOpHash = await fetchUserOpHash(userOp, provider)
-			console.log('userOpHash', userOpHash)
+			// console.log('userOpHash', userOpHash)
 
-			console.log('signing userOpHash... by', signer.address)
+			// console.log('signing userOpHash... by', signer.address)
 			const signature = await signer.signMessage(getBytes(userOpHash))
 
 			userOp.signature = signature
 
-			console.log('userOp', userOp)
+			// console.log('userOp', userOp)
 
-			const handlesOpsCalldata = getHandleOpsCalldata(userOp, sender)
-			console.log('debug:handlesOpsCalldata', handlesOpsCalldata)
+			// const handlesOpsCalldata = getHandleOpsCalldata(userOp, sender)
+			// console.log('debug:handlesOpsCalldata', handlesOpsCalldata)
 
 			// Get required prefund
 			const requiredGas =
@@ -197,10 +198,7 @@ export class WalletService {
 				BigInt(userOp.preVerificationGas)
 
 			const requiredPrefund = requiredGas * BigInt(userOp.maxFeePerGas)
-			console.log('requiredPrefund in ether', formatEther(requiredPrefund))
-
 			const senderBalance = await provider.getBalance(sender)
-			console.log('sender balance', formatEther(senderBalance))
 
 			if (senderBalance < requiredPrefund) {
 				throw new Error(`Sender address does not have enough native tokens`)
@@ -208,9 +206,9 @@ export class WalletService {
 
 			const res = await bundler.request('eth_sendUserOperation', [userOp, ENTRYPOINT])
 
+			let result = null
 			if (res) {
-				let result = null
-				console.log('Waiting for transaction receipt...')
+				console.log('Waiting for receipt...')
 
 				while (result === null) {
 					result = await bundler.request('eth_getUserOperationReceipt', [userOpHash])
@@ -221,15 +219,28 @@ export class WalletService {
 					}
 				}
 
-				console.log('Receipt', result)
-				console.log('transactionHash', result.receipt.transactionHash)
+				console.log('UserOp Receipt', result)
 			} else {
-				console.log(res)
+				throw new Error('Failed to send user operation')
 			}
 
 			this.callStatuses.set(callId, {
 				status: 'CONFIRMED',
-				receipts: [],
+				receipts: [
+					{
+						logs: result.logs.map((log: any) => ({
+							address: log.address,
+							data: log.data,
+							topics: log.topics,
+						})),
+						status: result.success ? '0x1' : '0x0',
+						chainId: CHAIN_ID.toString(),
+						blockHash: result.receipt.blockHash,
+						blockNumber: result.receipt.blockNumber,
+						gasUsed: result.receipt.gasUsed,
+						transactionHash: result.receipt.transactionHash,
+					},
+				],
 			})
 		} catch (error) {
 			console.error(`Failed to process calls for ${callId}:`, error)

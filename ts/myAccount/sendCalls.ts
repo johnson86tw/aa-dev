@@ -1,5 +1,5 @@
 import { parseEther, toBeHex } from 'ethers'
-import { WalletService } from './WalletService'
+import { WalletService, type CallsResult } from './WalletService'
 
 const from = '0x67ce34bc421060b8594cdd361ce201868845045b'
 
@@ -17,6 +17,13 @@ const identifier = await walletService.sendCalls({
 	calls: [call],
 })
 
-const status = await walletService.getCallStatus(identifier)
+let result: CallsResult | null = null
 
-console.log(status)
+while (!result || result.status === 'PENDING') {
+	result = await walletService.getCallStatus(identifier)
+	console.log('result', result)
+
+	if (!result || result.status === 'PENDING') {
+		await new Promise(resolve => setTimeout(resolve, 1000))
+	}
+}
