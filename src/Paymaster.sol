@@ -58,4 +58,8 @@ contract Paymaster is IPaymaster {
         //directly from EOA owner, or through the account itself (which gets redirected through execute())
         require(msg.sender == owner || msg.sender == address(this), "only owner");
     }
+
+    function isAllowed(address _address) public view returns (bool) {
+        return allowlist[_address];
+    }
 }

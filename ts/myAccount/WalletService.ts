@@ -1,15 +1,7 @@
 import { ethers, hexlify, randomBytes, Wallet } from 'ethers'
+import { concat, getBytes, Interface, toBeHex, zeroPadValue } from 'ethers'
+import { Bundler, createEntryPoint, ENTRYPOINT, fetchUserOpHash, type UserOperation } from './utils'
 
-import { concat, formatEther, getBytes, Interface, parseEther, toBeHex, zeroPadValue } from 'ethers'
-
-import {
-	createEntryPoint,
-	ENTRYPOINT,
-	fetchUserOpHash,
-	getHandleOpsCalldata,
-	Bundler,
-	type UserOperation,
-} from './utils'
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
 	throw new Error('Missing .env')
 }
