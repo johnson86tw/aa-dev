@@ -126,8 +126,9 @@ export class WalletService {
 			 * | 1 byte    | 1 byte    |   4 bytes  | 4 bytes       |   22 bytes    |
 			 * |--------------------------------------------------------------------|
 			 */
+			const callType = params.calls.length > 1 ? '0x01' : '0x00'
 			const modeCode = concat([
-				'0x00',
+				callType,
 				'0x00',
 				'0x00000000',
 				'0x00000000',
@@ -140,18 +141,20 @@ export class WalletService {
 				data: call.data || '0x',
 			}))
 
-			// @todo support CALLTYPE_BATCH
-			if (executions.length > 1) {
-				throw new Error('CALLTYPE_BATCH is not supported yet')
+			let executionCalldata
+			if (callType === '0x01') {
+				const abiCoder = new ethers.AbiCoder()
+				executionCalldata = abiCoder.encode(
+					['tuple(address,uint256,bytes)[]'],
+					[executions.map(execution => [execution.target, execution.value, execution.data])],
+				)
+			} else {
+				executionCalldata = concat([
+					executions[0].target,
+					zeroPadValue(toBeHex(executions[0].value), 32),
+					executions[0].data,
+				])
 			}
-
-			const execution = executions[0]
-
-			const executionCalldata = concat([
-				execution.target,
-				zeroPadValue(toBeHex(execution.value), 32),
-				execution.data,
-			])
 
 			const IMyAccount = new Interface(['function execute(bytes32 mode, bytes calldata executionCalldata)'])
 			const callData = IMyAccount.encodeFunctionData('execute', [modeCode, executionCalldata])
@@ -246,11 +249,15 @@ export class WalletService {
 				BigInt(userOp.preVerificationGas)
 
 			const requiredPrefund = requiredGas * BigInt(userOp.maxFeePerGas)
-			const senderBalance = await provider.getBalance(sender)
 
-			// @todo if support paymaster, check balance of paymaster
-			if (senderBalance < requiredPrefund) {
-				throw new Error(`Sender address does not have enough native tokens`)
+			if (!this.supportPaymaster) {
+				const senderBalance = await provider.getBalance(sender)
+
+				if (senderBalance < requiredPrefund) {
+					throw new Error(`Sender address does not have enough native tokens`)
+				}
+			} else {
+				// @todo if support paymaster, check balance of paymaster
 			}
 
 			console.log('Sending UserOp...')
