@@ -7,7 +7,7 @@ import {
 	fetchUserOpHash,
 	getHandleOpsCalldata,
 	type UserOperation,
-} from './utils'
+} from './myAccount/utils'
 import { PaymasterService } from './PaymasterService'
 
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {

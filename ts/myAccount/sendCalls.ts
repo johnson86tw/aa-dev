@@ -1,5 +1,5 @@
 import { parseEther, toBeHex } from 'ethers'
-import { WalletService, type CallsResult } from './WalletService'
+import { WalletService, type CallsResult } from '../WalletService'
 
 const from = '0x67ce34bc421060b8594cdd361ce201868845045b'
 

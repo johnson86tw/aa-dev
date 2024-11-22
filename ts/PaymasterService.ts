@@ -1,5 +1,5 @@
-import { concat, Contract, Interface, JsonRpcProvider, toBeHex, zeroPadValue } from 'ethers'
-import { ENTRYPOINT } from './utils'
+import { Contract, Interface, JsonRpcProvider, toBeHex } from 'ethers'
+import { ENTRYPOINT } from './myAccount/utils'
 
 if (!process.env.sepolia) {
 	throw new Error('Missing .env')
