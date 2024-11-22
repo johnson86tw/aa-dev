@@ -84,7 +84,18 @@ export class Bundler {
 				params,
 			}),
 		})
+
+		if (!response.ok) {
+			throw new Error(`HTTP error! status: ${response.status}`)
+		}
+
 		const data = await response.json()
+
+		// Check for JSON-RPC error response
+		if (data.error) {
+			throw new Error(`JSON-RPC error: ${data.error.message || JSON.stringify(data.error)}`)
+		}
+
 		return data.result
 	}
 }

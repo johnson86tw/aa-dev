@@ -10,7 +10,7 @@ const CHAIN_ID = 11155111
 const PAYMASTER_ADDRESS = '0xA2E1944eD3294f0202a063cc971ECe09cbd02e43'
 
 const provider = new JsonRpcProvider(RPC_URL)
-const paymasterInterface = new Interface(['isAllowed(address _address)'])
+const paymasterInterface = new Interface(['function isAllowed(address _address) public view returns (bool)'])
 const paymaster = new Contract(PAYMASTER_ADDRESS, paymasterInterface, provider)
 
 type GetPaymasterStubDataParams = [

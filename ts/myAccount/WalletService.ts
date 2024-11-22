@@ -1,6 +1,7 @@
 import { ethers, hexlify, randomBytes, Wallet } from 'ethers'
 import { concat, getBytes, Interface, toBeHex, zeroPadValue } from 'ethers'
 import { Bundler, createEntryPoint, ENTRYPOINT, fetchUserOpHash, type UserOperation } from './utils'
+import { PaymasterService } from './PaymasterService'
 
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
 	throw new Error('Missing .env')
@@ -18,7 +19,9 @@ const signer = new Wallet(PRIVATE_KEY, provider)
 const entrypoint = createEntryPoint(provider)
 const bundler = new Bundler(BUNDLER_URL)
 
-// ERC-5792
+type GetCapabilitiesParams = string[] // Wallet address
+type GetCapabilitiesResult = Record<string, Record<string, any>> // Hex chain id
+
 export type SendCallsParams = {
 	version: string
 	from: string
@@ -51,6 +54,25 @@ export type CallsResult = {
 
 export class WalletService {
 	private callStatuses: Map<string, CallsResult> = new Map()
+	private supportPaymaster: boolean = false
+
+	constructor(options?: { supportPaymaster: boolean }) {
+		this.supportPaymaster = options?.supportPaymaster ?? false
+	}
+
+	async getCapabilities(params: GetCapabilitiesParams): Promise<GetCapabilitiesResult> {
+		if (params[0] === signer.address) {
+			return {
+				[toBeHex(CHAIN_ID)]: {
+					paymasterService: {
+						supported: this.supportPaymaster,
+					},
+				},
+			}
+		}
+
+		return {}
+	}
 
 	async sendCalls(params: SendCallsParams): Promise<string> {
 		this.validateRequest(params)
@@ -158,6 +180,31 @@ export class WalletService {
 				signature: dummySignature,
 			}
 
+			if (this.supportPaymaster) {
+				const paymasterService = new PaymasterService()
+				const paymasterResult = await paymasterService.getPaymasterStubData([
+					{
+						sender: userOp.sender,
+						nonce: userOp.nonce,
+						initCode: '0x',
+						callData: userOp.callData,
+						callGasLimit: userOp.callGasLimit,
+						verificationGasLimit: userOp.verificationGasLimit,
+						preVerificationGas: userOp.preVerificationGas,
+						maxFeePerGas: userOp.maxFeePerGas,
+						maxPriorityFeePerGas: userOp.maxPriorityFeePerGas,
+					},
+					ENTRYPOINT,
+					CHAIN_ID.toString(),
+					{}, // Context
+				])
+
+				userOp.paymaster = paymasterResult.paymaster || null
+				userOp.paymasterData = paymasterResult.paymasterData || null
+				userOp.paymasterVerificationGasLimit = paymasterResult.paymasterVerificationGasLimit || '0x0'
+				userOp.paymasterPostOpGasLimit = paymasterResult.paymasterPostOpGasLimit || '0x0'
+			}
+
 			// estimate gas
 			const estimateGas = await bundler.request('eth_estimateUserOperationGas', [userOp, ENTRYPOINT])
 
@@ -196,25 +243,25 @@ export class WalletService {
 				throw new Error(`Sender address does not have enough native tokens`)
 			}
 
+			console.log('Sending UserOp...')
 			const res = await bundler.request('eth_sendUserOperation', [userOp, ENTRYPOINT])
-
-			let result = null
-			if (res) {
-				console.log('Waiting for receipt...')
-
-				while (result === null) {
-					result = await bundler.request('eth_getUserOperationReceipt', [userOpHash])
-
-					if (result === null) {
-						await new Promise(resolve => setTimeout(resolve, 1000))
-						console.log('Waiting for receipt...')
-					}
-				}
-
-				console.log('UserOp Receipt', result)
-			} else {
+			if (!res) {
 				throw new Error('Failed to send user operation')
 			}
+
+			console.log('Waiting for receipt...')
+
+			let result = null
+			while (result === null) {
+				result = await bundler.request('eth_getUserOperationReceipt', [userOpHash])
+
+				if (result === null) {
+					await new Promise(resolve => setTimeout(resolve, 1000))
+					console.log('Waiting for receipt...')
+				}
+			}
+
+			console.log('UserOp Receipt', result)
 
 			this.callStatuses.set(callId, {
 				status: 'CONFIRMED',
