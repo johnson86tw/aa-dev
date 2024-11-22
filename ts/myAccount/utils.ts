@@ -59,7 +59,14 @@ export function packUserOp(userOp: UserOperation) {
 			zeroPadValue(toBeHex(userOp.maxFeePerGas), 16),
 		]),
 		paymasterAndData:
-			userOp.paymaster && userOp.paymasterData ? concat([userOp.paymaster, userOp.paymasterData]) : '0x',
+			userOp.paymaster && userOp.paymasterData
+				? concat([
+						userOp.paymaster,
+						zeroPadValue(toBeHex(userOp.paymasterVerificationGasLimit), 16),
+						zeroPadValue(toBeHex(userOp.paymasterPostOpGasLimit), 16),
+						userOp.paymasterData,
+				  ])
+				: '0x',
 		signature: userOp.signature,
 	}
 }

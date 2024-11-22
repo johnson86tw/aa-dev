@@ -59,11 +59,7 @@ export class PaymasterService {
 				name: 'My Wallet',
 			},
 			paymaster: PAYMASTER_ADDRESS,
-			paymasterData: concat([
-				PAYMASTER_ADDRESS,
-				zeroPadValue(toBeHex(999_999n), 16),
-				zeroPadValue(toBeHex(999_999n), 16),
-			]),
+			paymasterData: '0x',
 			paymasterVerificationGasLimit: toBeHex(999_999n),
 			paymasterPostOpGasLimit: toBeHex(999_999n),
 			isFinal: true,

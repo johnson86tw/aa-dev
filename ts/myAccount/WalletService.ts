@@ -1,6 +1,13 @@
 import { ethers, hexlify, randomBytes, Wallet } from 'ethers'
 import { concat, getBytes, Interface, toBeHex, zeroPadValue } from 'ethers'
-import { Bundler, createEntryPoint, ENTRYPOINT, fetchUserOpHash, type UserOperation } from './utils'
+import {
+	Bundler,
+	createEntryPoint,
+	ENTRYPOINT,
+	fetchUserOpHash,
+	getHandleOpsCalldata,
+	type UserOperation,
+} from './utils'
 import { PaymasterService } from './PaymasterService'
 
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
@@ -214,6 +221,8 @@ export class WalletService {
 			userOp.paymasterVerificationGasLimit = estimateGas.paymasterVerificationGasLimit
 			userOp.paymasterPostOpGasLimit = estimateGas.paymasterPostOpGasLimit
 
+			// console.log('userOp', userOp)
+
 			// Sign signature
 			const userOpHash = await fetchUserOpHash(userOp, provider)
 			// console.log('userOpHash', userOpHash)
@@ -225,7 +234,7 @@ export class WalletService {
 
 			// console.log('userOp', userOp)
 
-			// const handlesOpsCalldata = getHandleOpsCalldata(userOp, sender)
+			const handlesOpsCalldata = getHandleOpsCalldata(userOp, sender)
 			// console.log('debug:handlesOpsCalldata', handlesOpsCalldata)
 
 			// Get required prefund
@@ -239,6 +248,7 @@ export class WalletService {
 			const requiredPrefund = requiredGas * BigInt(userOp.maxFeePerGas)
 			const senderBalance = await provider.getBalance(sender)
 
+			// @todo if support paymaster, check balance of paymaster
 			if (senderBalance < requiredPrefund) {
 				throw new Error(`Sender address does not have enough native tokens`)
 			}
