@@ -330,4 +330,22 @@ export class WalletService {
 	private genCallId(): string {
 		return hexlify(randomBytes(32))
 	}
+
+	async waitForReceipts(callId: string): Promise<CallsResult['receipts']> {
+		let result: CallsResult | null = null
+
+		while (!result || result.status === 'PENDING') {
+			result = await this.getCallStatus(callId)
+
+			if (!result || result.status === 'PENDING') {
+				await new Promise(resolve => setTimeout(resolve, 1000))
+			}
+		}
+
+		if (result.status === 'CONFIRMED' && result?.receipts) {
+			return result.receipts
+		}
+
+		throw new Error('No receipts found')
+	}
 }
