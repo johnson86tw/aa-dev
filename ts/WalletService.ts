@@ -114,50 +114,67 @@ export class WalletService {
 	}
 
 	private async processCalls(callId: string, params: SendCallsParams): Promise<void> {
+		let userOp: UserOperation | undefined
+		const sender = params.from
+		const calls = params.calls
+
 		try {
-			const sender = params.from
-			/**
-			 * Build callData
-			 *
-			 * ModeCode:
-			 * |--------------------------------------------------------------------|
-			 * | CALLTYPE  | EXECTYPE  |   UNUSED   | ModeSelector  |  ModePayload  |
-			 * |--------------------------------------------------------------------|
-			 * | 1 byte    | 1 byte    |   4 bytes  | 4 bytes       |   22 bytes    |
-			 * |--------------------------------------------------------------------|
-			 */
-			const callType = params.calls.length > 1 ? '0x01' : '0x00'
-			const modeCode = concat([
-				callType,
-				'0x00',
-				'0x00000000',
-				'0x00000000',
-				'0x00000000000000000000000000000000000000000000',
-			])
+			let callData
+			// if one of the call is to SA itself, it must be a single call
+			if (calls.some(call => call.to === sender)) {
+				if (calls.length > 1) {
+					throw new Error('If one of the call is to SA itself, it must be a single call')
+				}
 
-			const executions = params.calls.map(call => ({
-				target: call.to || '0x',
-				value: BigInt(call.value || '0x0'),
-				data: call.data || '0x',
-			}))
-
-			let executionCalldata
-			if (callType === '0x01') {
-				const abiCoder = new ethers.AbiCoder()
-				executionCalldata = abiCoder.encode(
-					['tuple(address,uint256,bytes)[]'],
-					[executions.map(execution => [execution.target, execution.value, execution.data])],
-				)
+				callData = calls[0].data
 			} else {
-				executionCalldata = concat([
-					executions[0].target,
-					zeroPadValue(toBeHex(executions[0].value), 32),
-					executions[0].data,
+				/**
+				 * Build callData
+				 *
+				 * ModeCode:
+				 * |--------------------------------------------------------------------|
+				 * | CALLTYPE  | EXECTYPE  |   UNUSED   | ModeSelector  |  ModePayload  |
+				 * |--------------------------------------------------------------------|
+				 * | 1 byte    | 1 byte    |   4 bytes  | 4 bytes       |   22 bytes    |
+				 * |--------------------------------------------------------------------|
+				 */
+				const callType = params.calls.length > 1 ? '0x01' : '0x00'
+				const modeCode = concat([
+					callType,
+					'0x00',
+					'0x00000000',
+					'0x00000000',
+					'0x00000000000000000000000000000000000000000000',
 				])
+
+				const executions = params.calls.map(call => ({
+					target: call.to || '0x',
+					value: BigInt(call.value || '0x0'),
+					data: call.data || '0x',
+				}))
+
+				let executionCalldata
+				if (callType === '0x01') {
+					const abiCoder = new ethers.AbiCoder()
+					executionCalldata = abiCoder.encode(
+						['tuple(address,uint256,bytes)[]'],
+						[executions.map(execution => [execution.target, execution.value, execution.data])],
+					)
+				} else {
+					executionCalldata = concat([
+						executions[0].target,
+						zeroPadValue(toBeHex(executions[0].value), 32),
+						executions[0].data,
+					])
+				}
+
+				const IMyAccount = new Interface(['function execute(bytes32 mode, bytes calldata executionCalldata)'])
+				callData = IMyAccount.encodeFunctionData('execute', [modeCode, executionCalldata])
 			}
 
-			const IMyAccount = new Interface(['function execute(bytes32 mode, bytes calldata executionCalldata)'])
-			const callData = IMyAccount.encodeFunctionData('execute', [modeCode, executionCalldata])
+			if (!callData) {
+				throw new Error('Failed to build callData')
+			}
 
 			// Build nonce
 			const nonceKey = zeroPadValue(ecdsaValidator, 24)
@@ -172,7 +189,7 @@ export class WalletService {
 			const dummySignature =
 				'0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c'
 
-			const userOp: UserOperation = {
+			userOp = {
 				sender,
 				nonce,
 				factory: null,
@@ -237,9 +254,6 @@ export class WalletService {
 
 			// console.log('userOp', userOp)
 
-			const handlesOpsCalldata = getHandleOpsCalldata(userOp, sender)
-			// console.log('debug:handlesOpsCalldata', handlesOpsCalldata)
-
 			// Get required prefund
 			const requiredGas =
 				BigInt(userOp.verificationGasLimit) +
@@ -300,6 +314,12 @@ export class WalletService {
 			})
 		} catch (error) {
 			console.error(`Failed to process calls for ${callId}:`, error)
+
+			if (userOp) {
+				// print handleOpsCalldata for debug
+				const handlesOpsCalldata = getHandleOpsCalldata(userOp, sender)
+				console.log('debug:handlesOpsCalldata', handlesOpsCalldata)
+			}
 
 			this.callStatuses.set(callId, {
 				status: 'CONFIRMED',
