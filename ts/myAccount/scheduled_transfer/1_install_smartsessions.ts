@@ -1,5 +1,6 @@
+import { Interface } from 'ethers'
 import { WalletService, type CallsResult } from '../../WalletService'
-import { getInstallSmartSessionsCalldata, MY_ACCOUNT_ADDRESS } from './utils'
+import { MY_ACCOUNT_ADDRESS, SMART_SESSION_ADDRESS } from './utils'
 
 const walletService = new WalletService({ supportPaymaster: true })
 
@@ -7,7 +8,9 @@ const walletService = new WalletService({ supportPaymaster: true })
 
 const call = {
 	to: MY_ACCOUNT_ADDRESS,
-	data: getInstallSmartSessionsCalldata(),
+	data: new Interface([
+		'function installModule(uint256 moduleTypeId, address module, bytes calldata initData)',
+	]).encodeFunctionData('installModule', [1, SMART_SESSION_ADDRESS, '0x']),
 	value: '0x0',
 }
 

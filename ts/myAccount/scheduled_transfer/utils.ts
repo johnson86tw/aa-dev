@@ -1,3 +1,4 @@
+import type { InterfaceAbi } from 'ethers'
 import { concat, dataLength, Interface, toBeHex, ZeroAddress, zeroPadBytes, zeroPadValue } from 'ethers'
 
 // sepolia
@@ -27,27 +28,27 @@ export function padRight(data: string, length: number = 32) {
 }
 
 export function getInstallSmartSessionsCalldata() {
-	const hook = ZeroAddress
-	const validationData = '0x'
-	const validationLength = padLeft(toBeHex(dataLength(validationData)))
-	const validationOffset = padLeft('0x60')
-	const hookLength = padLeft('0x0')
-	const hookOffset = padLeft(toBeHex(BigInt(validationOffset) + BigInt(validationLength) + BigInt('0x20')))
-	const selectorLength = padLeft('0x0')
-	const selectorOffset = padLeft(toBeHex(BigInt(hookOffset) + BigInt('0x20')))
+	// const hook = ZeroAddress
+	// const validationData = '0x'
+	// const validationLength = padLeft(toBeHex(dataLength(validationData)))
+	// const validationOffset = padLeft('0x60')
+	// const hookLength = padLeft('0x0')
+	// const hookOffset = padLeft(toBeHex(BigInt(validationOffset) + BigInt(validationLength) + BigInt('0x20')))
+	// const selectorLength = padLeft('0x0')
+	// const selectorOffset = padLeft(toBeHex(BigInt(hookOffset) + BigInt('0x20')))
 
-	const initData = concat([
-		hook,
-		validationOffset,
-		hookOffset,
-		selectorOffset,
-		validationLength,
-		validationData,
-		hookLength,
-		selectorLength,
-	])
+	// const initData = concat([
+	// 	hook,
+	// 	validationOffset,
+	// 	hookOffset,
+	// 	selectorOffset,
+	// 	validationLength,
+	// 	validationData,
+	// 	hookLength,
+	// 	selectorLength,
+	// ])
 
 	return new Interface([
 		'function installModule(uint256 moduleTypeId, address module, bytes calldata initData)',
-	]).encodeFunctionData('installModule', [1, SMART_SESSION_ADDRESS, initData])
+	]).encodeFunctionData('installModule', [1, SMART_SESSION_ADDRESS, '0x'])
 }
