@@ -1,11 +1,11 @@
-import type { InterfaceAbi } from 'ethers'
-import { concat, dataLength, Interface, toBeHex, ZeroAddress, zeroPadBytes, zeroPadValue } from 'ethers'
+import { Interface, zeroPadBytes, zeroPadValue } from 'ethers'
 
 // sepolia
 export const SMART_SESSION_ADDRESS = '0xCF57f874F2fAd43379ac571bDea61B759baDBD9B'
 export const SIMPLE_SESSION_VALIDATOR_ADDRESS = '0x61246aaA9057c4Df78416Ac1ff047C97b6eF392D'
 export const SUDO_POLICY_ADDRESS = '0x32D14013c953D7409e90ABc482CdC9672C05D371'
 export const MY_ACCOUNT_ADDRESS = '0x67ce34bc421060b8594cdd361ce201868845045b'
+export const SCHEDULED_TRANSFER_ADDRESS = '0x88EA6ae18FBc2bB092c34F59004940E3cb137506'
 
 export function padLeft(data: string, length: number = 32) {
 	if (!data.startsWith('0x')) {
@@ -51,4 +51,62 @@ export function getInstallSmartSessionsCalldata() {
 	return new Interface([
 		'function installModule(uint256 moduleTypeId, address module, bytes calldata initData)',
 	]).encodeFunctionData('installModule', [1, SMART_SESSION_ADDRESS, '0x'])
+}
+
+export const smartSessionsInterface = new Interface([
+	`function enableSessions(
+      tuple(
+        address sessionValidator,
+        bytes sessionValidatorInitData,
+        bytes32 salt,
+        tuple(
+          address policy,
+          bytes initData
+        )[] userOpPolicies,
+        tuple(
+          tuple(
+            address policy,
+            bytes initData
+          )[] erc1271Policies,
+          string[] allowedERC7739Content
+        ) erc7739Policies,
+        tuple(
+          bytes4 actionTargetSelector,
+          address actionTarget,
+          tuple(
+            address policy,
+            bytes initData
+          )[] actionPolicies
+        )[] actions
+      )[] sessions
+    ) returns (bytes32[] permissionIds)`,
+])
+
+type Session = {
+	sessionValidator: string // address
+	sessionValidatorInitData: string // bytes -> hex string
+	salt: string // bytes32 -> hex string
+	userOpPolicies: {
+		policy: string // address
+		initData: string // bytes -> hex string
+	}[]
+	erc7739Policies: {
+		erc1271Policies: {
+			policy: string // address
+			initData: string // bytes -> hex string
+		}[]
+		allowedERC7739Content: string[]
+	}
+	actions: {
+		actionTargetSelector: string // bytes4 -> hex string
+		actionTarget: string // address
+		actionPolicies: {
+			policy: string // address
+			initData: string // bytes -> hex string
+		}[]
+	}[]
+}
+
+export function getEnableSessionsCalldata(sessions: Session[]) {
+	return smartSessionsInterface.encodeFunctionData('enableSessions', [sessions])
 }
