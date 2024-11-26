@@ -155,12 +155,15 @@ export class WalletService {
 
 				let executionCalldata
 				if (callType === '0x01') {
+					// batch execution
 					const abiCoder = new ethers.AbiCoder()
 					executionCalldata = abiCoder.encode(
 						['tuple(address,uint256,bytes)[]'],
 						[executions.map(execution => [execution.target, execution.value, execution.data])],
 					)
 				} else {
+					console.log('here', executions)
+					// single execution
 					executionCalldata = concat([
 						executions[0].target,
 						zeroPadValue(toBeHex(executions[0].value), 32),
@@ -232,6 +235,8 @@ export class WalletService {
 				userOp.paymasterPostOpGasLimit = paymasterResult.paymasterPostOpGasLimit || '0x0'
 			}
 
+			console.log('userOp', userOp)
+
 			// estimate gas
 			const estimateGas = await bundler.request('eth_estimateUserOperationGas', [userOp, ENTRYPOINT])
 
@@ -251,8 +256,6 @@ export class WalletService {
 			const signature = await signer.signMessage(getBytes(userOpHash))
 
 			userOp.signature = signature
-
-			// console.log('userOp', userOp)
 
 			// Get required prefund
 			const requiredGas =

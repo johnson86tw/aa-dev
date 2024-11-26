@@ -100,7 +100,7 @@ export class Bundler {
 
 		// Check for JSON-RPC error response
 		if (data.error) {
-			throw new Error(`JSON-RPC error: ${data.error.message || JSON.stringify(data.error)}`)
+			throw new Error(`JSON-RPC error: ${method} - ${JSON.stringify(data.error)}`)
 		}
 
 		return data.result
