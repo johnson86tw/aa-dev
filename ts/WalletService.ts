@@ -162,7 +162,6 @@ export class WalletService {
 						[executions.map(execution => [execution.target, execution.value, execution.data])],
 					)
 				} else {
-					console.log('here', executions)
 					// single execution
 					executionCalldata = concat([
 						executions[0].target,
@@ -315,10 +314,21 @@ export class WalletService {
 					},
 				],
 			})
-		} catch (error) {
+		} catch (error: any) {
 			console.error(`Failed to process calls for ${callId}:`, error)
 
 			if (userOp) {
+				if (error.message.includes('JSON-RPC error: eth_estimateUserOperationGas')) {
+					// Mock gas values for userOp
+					userOp.callGasLimit = '0xf423f' // 999,999 gas
+					userOp.verificationGasLimit = '0xf423f' // 999,999 gas
+					userOp.preVerificationGas = '0xf423f' // 999,999 gas
+
+					// sign userOp
+					const userOpHash = await fetchUserOpHash(userOp, provider)
+					const signature = await signer.signMessage(getBytes(userOpHash))
+					userOp.signature = signature
+				}
 				// print handleOpsCalldata for debug
 				const handlesOpsCalldata = getHandleOpsCalldata(userOp, sender)
 				console.log('debug:handlesOpsCalldata', handlesOpsCalldata)
