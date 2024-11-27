@@ -53,3 +53,28 @@ export function getInstallSmartSessionsCalldata() {
 		'function installModule(uint256 moduleTypeId, address module, bytes calldata initData)',
 	]).encodeFunctionData('installModule', [1, SMART_SESSION_ADDRESS, '0x'])
 }
+
+export type Session = {
+	sessionValidator: string // address
+	sessionValidatorInitData: string // bytes -> hex string
+	salt: string // bytes32 -> hex string
+	userOpPolicies: {
+		policy: string // address
+		initData: string // bytes -> hex string
+	}[]
+	erc7739Policies: {
+		erc1271Policies: {
+			policy: string // address
+			initData: string // bytes -> hex string
+		}[]
+		allowedERC7739Content: string[]
+	}
+	actions: {
+		actionTargetSelector: string // bytes4 -> hex string
+		actionTarget: string // address
+		actionPolicies: {
+			policy: string // address
+			initData: string // bytes -> hex string
+		}[]
+	}[]
+}

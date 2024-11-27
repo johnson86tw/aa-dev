@@ -10,7 +10,7 @@ const call = {
 	to: MY_ACCOUNT_ADDRESS,
 	data: new Interface([
 		'function installModule(uint256 moduleTypeId, address module, bytes calldata initData)',
-	]).encodeFunctionData('installModule', [1, SMART_SESSION_ADDRESS, '0x']),
+	]).encodeFunctionData('installModule', [1, SMART_SESSION_ADDRESS, '0x02']),
 	value: '0x0',
 }
 
