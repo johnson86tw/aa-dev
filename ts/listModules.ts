@@ -36,13 +36,10 @@ const installedModules = new Map<string, Set<string>>() // moduleTypeId => Set o
 console.log('Module History:')
 console.log('==============')
 
-for (let i = allEvents.length - 1; i >= 0; i--) {
-	const event = allEvents[i]
+for (const event of allEvents) {
 	const { moduleTypeId, module } = event.args
 	const typeId = moduleTypeId.toString()
 	const action = event.fragment.name === 'ModuleInstalled' ? 'Installed' : 'Uninstalled'
-
-	console.log(`Block ${event.blockNumber}: ${action} module type ${typeId} at ${module}`)
 
 	// Update tracking
 	if (action === 'Installed') {
@@ -56,6 +53,15 @@ for (let i = allEvents.length - 1; i >= 0; i--) {
 			installedModules.delete(typeId)
 		}
 	}
+}
+
+for (let i = allEvents.length - 1; i >= 0; i--) {
+	const event = allEvents[i]
+	console.log(
+		`Block ${event.blockNumber}: ${event.fragment.name} module type ${event.args.moduleTypeId.toString()} at ${
+			event.args.module
+		}`,
+	)
 }
 
 console.log('\nCurrently Installed Modules:')
