@@ -40,8 +40,6 @@ const sessions: Session[] = [
 	},
 ]
 
-// install smartsessions
-
 const encodedSessions = '0x' + smartSessionsInterface.encodeFunctionData('enableSessions', [sessions]).slice(10)
 const initData = concat(['0x02', encodedSessions])
 

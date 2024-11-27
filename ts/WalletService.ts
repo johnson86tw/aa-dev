@@ -1,4 +1,4 @@
-import { ethers, hexlify, randomBytes, Wallet } from 'ethers'
+import { AbiCoder, ethers, hexlify, randomBytes, Wallet } from 'ethers'
 import { concat, getBytes, Interface, toBeHex, zeroPadValue } from 'ethers'
 import {
 	Bundler,
@@ -9,6 +9,9 @@ import {
 	type UserOperation,
 } from './myAccount/utils'
 import { PaymasterService } from './PaymasterService'
+import { SMART_SESSION_ADDRESS } from './myAccount/scheduled_transfer/utils'
+import type { BytesLike } from 'ethers'
+import { LibZip } from 'solady'
 
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
 	throw new Error('Missing .env')
@@ -19,10 +22,10 @@ const RPC_URL = process.env.sepolia
 const PIMLICO_API_KEY = process.env.PIMLICO_API_KEY
 const CHAIN_ID = 11155111
 const BUNDLER_URL = `https://api.pimlico.io/v2/${CHAIN_ID}/rpc?apikey=${PIMLICO_API_KEY}`
-const ecdsaValidator = '0xd577C0746c19DeB788c0D698EcAf66721DC2F7A4'
+const ECDSA_VALIDATOR_ADDRESS = '0xd577C0746c19DeB788c0D698EcAf66721DC2F7A4'
 
 const provider = new ethers.JsonRpcProvider(RPC_URL)
-const signer = new Wallet(PRIVATE_KEY, provider)
+
 const entrypoint = createEntryPoint(provider)
 const bundler = new Bundler(BUNDLER_URL)
 
@@ -59,16 +62,25 @@ export type CallsResult = {
 	}[]
 }
 
+type UseSmartSessions = {
+	mode: BytesLike // 1 byte
+	permissionId: string // 32 bytes
+}
+
 export class WalletService {
 	private callStatuses: Map<string, CallsResult> = new Map()
 	private supportPaymaster: boolean = false
+	private signer: Wallet
+	private useSmartSessions: UseSmartSessions | undefined
 
-	constructor(options?: { supportPaymaster: boolean }) {
+	constructor(options?: { supportPaymaster: boolean; privateKey?: string; useSmartSessions?: UseSmartSessions }) {
 		this.supportPaymaster = options?.supportPaymaster ?? false
+		this.signer = new Wallet(options?.privateKey ?? PRIVATE_KEY, provider)
+		this.useSmartSessions = options?.useSmartSessions ?? undefined
 	}
 
 	async getCapabilities(params: GetCapabilitiesParams): Promise<GetCapabilitiesResult> {
-		if (params[0] === signer.address) {
+		if (params[0] === this.signer.address) {
 			return {
 				[toBeHex(CHAIN_ID)]: {
 					paymasterService: {
@@ -179,7 +191,12 @@ export class WalletService {
 			}
 
 			// Build nonce
-			const nonceKey = zeroPadValue(ecdsaValidator, 24)
+			let nonceKey
+			if (this.useSmartSessions) {
+				nonceKey = zeroPadValue(SMART_SESSION_ADDRESS, 24)
+			} else {
+				nonceKey = zeroPadValue(ECDSA_VALIDATOR_ADDRESS, 24)
+			}
 			const nonce = toBeHex(await entrypoint.getNonce(sender, nonceKey))
 
 			// fetch current gas price
@@ -252,9 +269,22 @@ export class WalletService {
 			// console.log('userOpHash', userOpHash)
 
 			// console.log('signing userOpHash... by', signer.address)
-			const signature = await signer.signMessage(getBytes(userOpHash))
+			const signature = await this.signer.signMessage(getBytes(userOpHash))
 
-			userOp.signature = signature
+			if (this.useSmartSessions) {
+				const packedSignature = LibZip.flzCompress(new AbiCoder().encode(['bytes'], [signature]))
+				if (BigInt(hexlify(this.useSmartSessions.mode)) === 1n) {
+					userOp.signature = concat([this.useSmartSessions.mode, packedSignature])
+				} else {
+					userOp.signature = concat([
+						this.useSmartSessions.mode,
+						this.useSmartSessions.permissionId,
+						packedSignature,
+					])
+				}
+			} else {
+				userOp.signature = signature
+			}
 
 			// Get required prefund
 			const requiredGas =
@@ -326,7 +356,7 @@ export class WalletService {
 
 					// sign userOp
 					const userOpHash = await fetchUserOpHash(userOp, provider)
-					const signature = await signer.signMessage(getBytes(userOpHash))
+					const signature = await this.signer.signMessage(getBytes(userOpHash))
 					userOp.signature = signature
 				}
 				// print handleOpsCalldata for debug

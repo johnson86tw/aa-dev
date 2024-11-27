@@ -11,6 +11,7 @@
   "dependencies": {
     "ethers": "^6.13.4",
     "permissionless": "^0.2.13",
+    "solady": "^0.0.273",
     "viem": "^2.21.35"
   }
 }

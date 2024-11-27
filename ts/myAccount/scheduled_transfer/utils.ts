@@ -1,4 +1,4 @@
-import { Interface, zeroPadBytes, zeroPadValue } from 'ethers'
+import { AbiCoder, Interface, keccak256, zeroPadBytes, zeroPadValue } from 'ethers'
 
 // sepolia
 export const MY_ACCOUNT_ADDRESS = '0x67ce34bc421060b8594cdd361ce201868845045b'
@@ -77,4 +77,8 @@ export type Session = {
 			initData: string // bytes -> hex string
 		}[]
 	}[]
+}
+
+function getPermissionId(validator: string, initData: string, salt: string) {
+	return keccak256(new AbiCoder().encode(['address', 'bytes', 'bytes32'], [validator, initData, salt]))
 }
