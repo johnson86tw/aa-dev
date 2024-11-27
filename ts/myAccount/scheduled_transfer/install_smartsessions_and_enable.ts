@@ -1,4 +1,5 @@
-import { concat, hexlify, Interface, randomBytes } from 'ethers'
+import { concat, Interface } from 'ethers'
+import ISmartSessionJSON from '../../abis/ISmartSession.json'
 import { WalletService, type CallsResult } from '../../WalletService'
 import {
 	MY_ACCOUNT_ADDRESS,
@@ -10,7 +11,6 @@ import {
 	SUDO_POLICY_ADDRESS,
 	type Session,
 } from './utils'
-import ISmartSessionJSON from '../../abis/ISmartSession.json'
 
 const smartSessionsInterface = new Interface(ISmartSessionJSON.abi)
 

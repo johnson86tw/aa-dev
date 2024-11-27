@@ -72,6 +72,7 @@ export type CallsResult = {
 }
 
 type UseSmartSessions = {
+	privateKey: string
 	mode: SmartSessionsMode
 	permissionId?: string // 32 bytes
 }
@@ -82,9 +83,9 @@ export class WalletService {
 	private signer: Wallet
 	private useSmartSessions: UseSmartSessions | undefined
 
-	constructor(options?: { supportPaymaster: boolean; privateKey?: string; useSmartSessions?: UseSmartSessions }) {
+	constructor(options?: { supportPaymaster: boolean; useSmartSessions?: UseSmartSessions }) {
 		this.supportPaymaster = options?.supportPaymaster ?? false
-		this.signer = new Wallet(options?.privateKey ?? PRIVATE_KEY, provider)
+		this.signer = new Wallet(options?.useSmartSessions?.privateKey ?? PRIVATE_KEY, provider)
 		this.useSmartSessions = options?.useSmartSessions ?? undefined
 	}
 
@@ -214,29 +215,6 @@ export class WalletService {
 			const maxPriorityFeePerGas = currentGasPrice.standard.maxPriorityFeePerGas
 
 			// make sure the length is same as the actual one. it must be set to call eth_estimateUserOperationGas
-
-			let dummySignature
-			if (this.useSmartSessions) {
-				const dummyPackedSignature =
-					'0x010000e014010020e0141d1f0000416bd724da5b8a695d00052f5e33356be5e332934bd9d87b5738443193d41f20b80a0131642ab512d439a8497972927a6c6cfae6de9de93fe7b422d40f9f81035f99df1b2044e00e00040000000000'
-
-				if (isEnableMode(this.useSmartSessions.mode)) {
-					dummySignature = concat([this.useSmartSessions.mode, dummyPackedSignature])
-				} else {
-					if (!this.useSmartSessions.permissionId) {
-						throw new Error('USE mode must have permissionId')
-					}
-					dummySignature = concat([
-						this.useSmartSessions.mode,
-						this.useSmartSessions.permissionId,
-						dummyPackedSignature,
-					])
-				}
-			} else {
-				dummySignature =
-					'0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c'
-			}
-
 			userOp = {
 				sender,
 				nonce,
@@ -252,8 +230,34 @@ export class WalletService {
 				paymasterVerificationGasLimit: '0x0',
 				paymasterPostOpGasLimit: '0x0',
 				paymasterData: null,
-				signature: dummySignature,
+				signature: '0x',
 			}
+
+			let dummySignature
+			if (this.useSmartSessions) {
+				// 93 bytes dummyPackedSignature
+				const dummyPackedSignature =
+					'0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
+
+				if (isEnableMode(this.useSmartSessions.mode)) {
+					dummySignature = concat([this.useSmartSessions.mode, dummyPackedSignature])
+				} else {
+					if (!this.useSmartSessions.permissionId) {
+						throw new Error('USE mode must have permissionId')
+					}
+					dummySignature = concat([
+						this.useSmartSessions.mode,
+						this.useSmartSessions.permissionId,
+						dummyPackedSignature,
+					])
+					console.log('smartsessions dummy signature', dummySignature)
+				}
+			} else {
+				dummySignature =
+					'0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c'
+			}
+
+			userOp.signature = dummySignature
 
 			if (this.supportPaymaster) {
 				const paymasterService = new PaymasterService()
@@ -301,6 +305,7 @@ export class WalletService {
 			const signature = await this.signer.signMessage(getBytes(userOpHash))
 
 			if (this.useSmartSessions) {
+				console.log('smartsessions signer', this.signer.address)
 				const packedSignature = LibZip.flzCompress(new AbiCoder().encode(['bytes'], [signature]))
 				if (isEnableMode(this.useSmartSessions.mode)) {
 					userOp.signature = concat([this.useSmartSessions.mode, packedSignature])
@@ -313,6 +318,7 @@ export class WalletService {
 						this.useSmartSessions.permissionId,
 						packedSignature,
 					])
+					console.log('smartsessions signature', userOp.signature)
 				}
 			} else {
 				userOp.signature = signature

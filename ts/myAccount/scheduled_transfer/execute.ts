@@ -18,8 +18,8 @@ const call = {
 
 const walletService = new WalletService({
 	supportPaymaster: true,
-	privateKey: SESSION_PRIVATE_KEY,
 	useSmartSessions: {
+		privateKey: SESSION_PRIVATE_KEY,
 		mode: SMART_SESSIONS_USE_MODE,
 		permissionId: PERMISSION_ID,
 	},
