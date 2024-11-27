@@ -1,6 +1,6 @@
 import { Interface } from 'ethers'
 import { WalletService, type CallsResult } from '../../WalletService'
-import { MY_ACCOUNT_ADDRESS, SCHEDULED_TRANSFER_ADDRESS, SMART_SESSIONS_UNSAFE_ENABLE_MODE } from './utils'
+import { MY_ACCOUNT_ADDRESS, SCHEDULED_TRANSFER_ADDRESS, SMART_SESSIONS_USE_MODE } from './utils'
 
 if (!process.env.SESSION_PRIVATE_KEY || !process.env.sepolia) {
 	throw new Error('Missing .env')
@@ -8,7 +8,7 @@ if (!process.env.SESSION_PRIVATE_KEY || !process.env.sepolia) {
 
 const SESSION_PRIVATE_KEY = process.env.SESSION_PRIVATE_KEY
 
-// const PERMISSION_ID = '0x806d155f32a2877e88e133de991dd3e7ca11c48ab55edc977aca8c66cab57c71'
+const PERMISSION_ID = '0xb72ded2811243e47314035a2ebc224f775e95edb8e4f26b883b2479d5be18b7a'
 
 const call = {
 	to: SCHEDULED_TRANSFER_ADDRESS,
@@ -20,7 +20,8 @@ const walletService = new WalletService({
 	supportPaymaster: true,
 	privateKey: SESSION_PRIVATE_KEY,
 	useSmartSessions: {
-		mode: SMART_SESSIONS_UNSAFE_ENABLE_MODE,
+		mode: SMART_SESSIONS_USE_MODE,
+		permissionId: PERMISSION_ID,
 	},
 })
 

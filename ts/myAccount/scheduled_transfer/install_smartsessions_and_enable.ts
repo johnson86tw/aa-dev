@@ -14,11 +14,13 @@ import ISmartSessionJSON from '../../abis/ISmartSession.json'
 
 const smartSessionsInterface = new Interface(ISmartSessionJSON.abi)
 
+const salt = '0xdb787b0b2cf9e21d9d85ac2d8db4c1497f2fcf996ea231808c54d69c247785d0'
+
 const sessions: Session[] = [
 	{
 		sessionValidator: SIMPLE_SESSION_VALIDATOR_ADDRESS,
 		sessionValidatorInitData: SESSION_PUBLIC_KEY,
-		salt: hexlify(randomBytes(32)),
+		salt,
 		userOpPolicies: [],
 		erc7739Policies: {
 			erc1271Policies: [],
