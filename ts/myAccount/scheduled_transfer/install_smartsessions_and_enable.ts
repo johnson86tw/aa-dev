@@ -6,6 +6,7 @@ import {
 	SESSION_PUBLIC_KEY,
 	SIMPLE_SESSION_VALIDATOR_ADDRESS,
 	SMART_SESSION_ADDRESS,
+	SMART_SESSIONS_UNSAFE_ENABLE_MODE,
 	SUDO_POLICY_ADDRESS,
 	type Session,
 } from './utils'
@@ -41,7 +42,7 @@ const sessions: Session[] = [
 ]
 
 const encodedSessions = '0x' + smartSessionsInterface.encodeFunctionData('enableSessions', [sessions]).slice(10)
-const initData = concat(['0x02', encodedSessions])
+const initData = concat([SMART_SESSIONS_UNSAFE_ENABLE_MODE, encodedSessions])
 
 const call = {
 	to: MY_ACCOUNT_ADDRESS,

@@ -1,5 +1,17 @@
-import { AbiCoder, ethers, hexlify, randomBytes, Wallet } from 'ethers'
-import { concat, getBytes, Interface, toBeHex, zeroPadValue } from 'ethers'
+import {
+	AbiCoder,
+	concat,
+	ethers,
+	getBytes,
+	hexlify,
+	Interface,
+	randomBytes,
+	toBeHex,
+	Wallet,
+	zeroPadValue,
+} from 'ethers'
+import { LibZip } from 'solady'
+import { isEnableMode, SMART_SESSION_ADDRESS, type SmartSessionsMode } from './myAccount/scheduled_transfer/utils'
 import {
 	Bundler,
 	createEntryPoint,
@@ -9,9 +21,6 @@ import {
 	type UserOperation,
 } from './myAccount/utils'
 import { PaymasterService } from './PaymasterService'
-import { SMART_SESSION_ADDRESS } from './myAccount/scheduled_transfer/utils'
-import type { BytesLike } from 'ethers'
-import { LibZip } from 'solady'
 
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
 	throw new Error('Missing .env')
@@ -63,8 +72,8 @@ export type CallsResult = {
 }
 
 type UseSmartSessions = {
-	mode: BytesLike // 1 byte
-	permissionId: string // 32 bytes
+	mode: SmartSessionsMode
+	permissionId?: string // 32 bytes
 }
 
 export class WalletService {
@@ -168,8 +177,7 @@ export class WalletService {
 				let executionCalldata
 				if (callType === '0x01') {
 					// batch execution
-					const abiCoder = new ethers.AbiCoder()
-					executionCalldata = abiCoder.encode(
+					executionCalldata = new ethers.AbiCoder().encode(
 						['tuple(address,uint256,bytes)[]'],
 						[executions.map(execution => [execution.target, execution.value, execution.data])],
 					)
@@ -184,6 +192,7 @@ export class WalletService {
 
 				const IMyAccount = new Interface(['function execute(bytes32 mode, bytes calldata executionCalldata)'])
 				callData = IMyAccount.encodeFunctionData('execute', [modeCode, executionCalldata])
+				console.log('callData', callData)
 			}
 
 			if (!callData) {
@@ -205,8 +214,28 @@ export class WalletService {
 			const maxPriorityFeePerGas = currentGasPrice.standard.maxPriorityFeePerGas
 
 			// make sure the length is same as the actual one. it must be set to call eth_estimateUserOperationGas
-			const dummySignature =
-				'0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c'
+
+			let dummySignature
+			if (this.useSmartSessions) {
+				const dummyPackedSignature =
+					'0x010000e014010020e0141d1f0000416bd724da5b8a695d00052f5e33356be5e332934bd9d87b5738443193d41f20b80a0131642ab512d439a8497972927a6c6cfae6de9de93fe7b422d40f9f81035f99df1b2044e00e00040000000000'
+
+				if (isEnableMode(this.useSmartSessions.mode)) {
+					dummySignature = concat([this.useSmartSessions.mode, dummyPackedSignature])
+				} else {
+					if (!this.useSmartSessions.permissionId) {
+						throw new Error('USE mode must have permissionId')
+					}
+					dummySignature = concat([
+						this.useSmartSessions.mode,
+						this.useSmartSessions.permissionId,
+						dummyPackedSignature,
+					])
+				}
+			} else {
+				dummySignature =
+					'0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c'
+			}
 
 			userOp = {
 				sender,
@@ -273,9 +302,12 @@ export class WalletService {
 
 			if (this.useSmartSessions) {
 				const packedSignature = LibZip.flzCompress(new AbiCoder().encode(['bytes'], [signature]))
-				if (BigInt(hexlify(this.useSmartSessions.mode)) === 1n) {
+				if (isEnableMode(this.useSmartSessions.mode)) {
 					userOp.signature = concat([this.useSmartSessions.mode, packedSignature])
 				} else {
+					if (!this.useSmartSessions.permissionId) {
+						throw new Error('USE mode must have permissionId')
+					}
 					userOp.signature = concat([
 						this.useSmartSessions.mode,
 						this.useSmartSessions.permissionId,
@@ -357,7 +389,24 @@ export class WalletService {
 					// sign userOp
 					const userOpHash = await fetchUserOpHash(userOp, provider)
 					const signature = await this.signer.signMessage(getBytes(userOpHash))
-					userOp.signature = signature
+
+					if (this.useSmartSessions) {
+						const packedSignature = LibZip.flzCompress(new AbiCoder().encode(['bytes'], [signature]))
+						if (isEnableMode(this.useSmartSessions.mode)) {
+							userOp.signature = concat([this.useSmartSessions.mode, packedSignature])
+						} else {
+							if (!this.useSmartSessions.permissionId) {
+								throw new Error('USE mode must have permissionId')
+							}
+							userOp.signature = concat([
+								this.useSmartSessions.mode,
+								this.useSmartSessions.permissionId,
+								packedSignature,
+							])
+						}
+					} else {
+						userOp.signature = signature
+					}
 				}
 				// print handleOpsCalldata for debug
 				const handlesOpsCalldata = getHandleOpsCalldata(userOp, sender)
