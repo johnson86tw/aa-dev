@@ -394,7 +394,11 @@ export class WalletService {
 
 					// sign userOp
 					const userOpHash = await fetchUserOpHash(userOp, provider)
+					console.log('debug:userOpHash', userOpHash)
+
 					const signature = await this.signer.signMessage(getBytes(userOpHash))
+
+					console.log(`debug:signature, signer: ${this.signer.address}`, signature)
 
 					if (this.useSmartSessions) {
 						const packedSignature = LibZip.flzCompress(new AbiCoder().encode(['bytes'], [signature]))

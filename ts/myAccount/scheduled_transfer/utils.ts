@@ -90,6 +90,7 @@ export type Session = {
 			initData: string // bytes -> hex string
 		}[]
 	}[]
+	canUsePaymaster: boolean
 }
 
 function getPermissionId(validator: string, initData: string, salt: string) {

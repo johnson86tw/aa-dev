@@ -10,12 +10,6 @@ const SESSION_PRIVATE_KEY = process.env.SESSION_PRIVATE_KEY
 
 const PERMISSION_ID = '0xb72ded2811243e47314035a2ebc224f775e95edb8e4f26b883b2479d5be18b7a'
 
-const call = {
-	to: SCHEDULED_TRANSFER_ADDRESS,
-	data: new Interface(['function executeOrder(uint256 jobId)']).encodeFunctionData('executeOrder', [1]),
-	value: '0x0',
-}
-
 const walletService = new WalletService({
 	supportPaymaster: true,
 	useSmartSessions: {
@@ -28,7 +22,13 @@ const walletService = new WalletService({
 const identifier = await walletService.sendCalls({
 	version: '1',
 	from: MY_ACCOUNT_ADDRESS,
-	calls: [call],
+	calls: [
+		{
+			to: SCHEDULED_TRANSFER_ADDRESS,
+			data: new Interface(['function executeOrder(uint256 jobId)']).encodeFunctionData('executeOrder', [1]),
+			value: '0x0',
+		},
+	],
 })
 
 let result: CallsResult | null = null

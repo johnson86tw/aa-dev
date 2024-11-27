@@ -40,6 +40,7 @@ const sessions: Session[] = [
 				],
 			},
 		],
+		canUsePaymaster: true,
 	},
 ]
 
