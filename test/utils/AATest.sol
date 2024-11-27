@@ -28,7 +28,7 @@ abstract contract AATest is Test {
             callData: bytes(""),
             accountGasLimits: pack(999_999, 999_999),
             preVerificationGas: 99_999,
-            gasFees: pack(999_999, 99_999),
+            gasFees: pack(999_999, 999_999),
             paymasterAndData: bytes(""),
             signature: bytes("")
         });

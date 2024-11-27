@@ -54,7 +54,7 @@ contract MyAccount is IAccount, IAccountExecute, IERC7579Account, ModuleManager,
         _entryPoint = anEntryPoint;
         _initModuleManager();
 
-        installModule(MODULE_TYPE_VALIDATOR, validator, data);
+        _installModule(MODULE_TYPE_VALIDATOR, validator, data);
         require(_hasValidators(), NoValidatorInstalled());
 
         emit AccountInitialized(_entryPoint);
@@ -142,7 +142,15 @@ contract MyAccount is IAccount, IAccountExecute, IERC7579Account, ModuleManager,
      * @dev only supports validator, exector, fallback
      * @dev Modified from https://github.com/bcnmy/nexus
      */
-    function installModule(uint256 moduleTypeId, address module, bytes calldata initData) public payable {
+    function installModule(uint256 moduleTypeId, address module, bytes calldata initData)
+        public
+        payable
+        onlyEntryPointOrSelf
+    {
+        _installModule(moduleTypeId, module, initData);
+    }
+
+    function _installModule(uint256 moduleTypeId, address module, bytes calldata initData) internal {
         if (module == address(0)) revert ModuleAddressCanNotBeZero();
         if (moduleTypeId == MODULE_TYPE_VALIDATOR) {
             _installValidator(module, initData);
@@ -161,7 +169,11 @@ contract MyAccount is IAccount, IAccountExecute, IERC7579Account, ModuleManager,
      * @dev only supports validator, exector, fallback
      * @dev Modified from https://github.com/bcnmy/nexus
      */
-    function uninstallModule(uint256 moduleTypeId, address module, bytes calldata deInitData) external payable {
+    function uninstallModule(uint256 moduleTypeId, address module, bytes calldata deInitData)
+        external
+        payable
+        onlyEntryPointOrSelf
+    {
         require(isModuleInstalled(moduleTypeId, module, deInitData), ModuleNotInstalled(moduleTypeId, module));
 
         if (moduleTypeId == MODULE_TYPE_VALIDATOR) {
