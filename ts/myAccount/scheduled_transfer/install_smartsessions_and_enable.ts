@@ -44,8 +44,16 @@ const sessions: Session[] = [
 	},
 ]
 
+console.log('sessions', sessions)
+console.log('enableSessions', smartSessionsInterface.encodeFunctionData('enableSessions', [sessions]))
+
 const encodedSessions = '0x' + smartSessionsInterface.encodeFunctionData('enableSessions', [sessions]).slice(10)
+
+console.log('encodedSessions', encodedSessions)
+
 const initData = concat([SMART_SESSIONS_UNSAFE_ENABLE_MODE, encodedSessions])
+
+console.log('initData', initData)
 
 const call = {
 	to: MY_ACCOUNT_ADDRESS,
