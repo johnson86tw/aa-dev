@@ -1,17 +1,10 @@
+import { concat, ethers, getBytes, hexlify, Interface, randomBytes, toBeHex, Wallet, zeroPadValue } from 'ethers'
 import {
-	AbiCoder,
-	concat,
-	ethers,
-	getBytes,
-	hexlify,
-	Interface,
-	randomBytes,
-	toBeHex,
-	Wallet,
-	zeroPadValue,
-} from 'ethers'
-import { LibZip } from 'solady'
-import { isEnableMode, SMART_SESSION_ADDRESS, type SmartSessionsMode } from './myAccount/scheduled_transfer/utils'
+	isEnableMode,
+	SMART_SESSION_ADDRESS,
+	SMART_SESSIONS_USE_MODE,
+	type SmartSessionsMode,
+} from './myAccount/scheduled_transfer/utils'
 import {
 	Bundler,
 	createEntryPoint,
@@ -235,9 +228,8 @@ export class WalletService {
 
 			let dummySignature
 			if (this.useSmartSessions) {
-				// 93 bytes dummyPackedSignature
 				const dummyPackedSignature =
-					'0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
+					'0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c'
 
 				if (isEnableMode(this.useSmartSessions.mode)) {
 					dummySignature = concat([this.useSmartSessions.mode, dummyPackedSignature])
@@ -246,11 +238,10 @@ export class WalletService {
 						throw new Error('USE mode must have permissionId')
 					}
 					dummySignature = concat([
-						this.useSmartSessions.mode,
+						SMART_SESSIONS_USE_MODE,
 						this.useSmartSessions.permissionId,
 						dummyPackedSignature,
 					])
-					console.log('smartsessions dummy signature', dummySignature)
 				}
 			} else {
 				dummySignature =
@@ -306,9 +297,8 @@ export class WalletService {
 
 			if (this.useSmartSessions) {
 				console.log('smartsessions signer', this.signer.address)
-				const packedSignature = LibZip.flzCompress(new AbiCoder().encode(['bytes'], [signature]))
 				if (isEnableMode(this.useSmartSessions.mode)) {
-					userOp.signature = concat([this.useSmartSessions.mode, packedSignature])
+					userOp.signature = concat([this.useSmartSessions.mode, signature])
 				} else {
 					if (!this.useSmartSessions.permissionId) {
 						throw new Error('USE mode must have permissionId')
@@ -316,7 +306,7 @@ export class WalletService {
 					userOp.signature = concat([
 						this.useSmartSessions.mode,
 						this.useSmartSessions.permissionId,
-						packedSignature,
+						signature,
 					])
 					console.log('smartsessions signature', userOp.signature)
 				}
@@ -401,9 +391,8 @@ export class WalletService {
 					console.log(`debug:signature, signer: ${this.signer.address}`, signature)
 
 					if (this.useSmartSessions) {
-						const packedSignature = LibZip.flzCompress(new AbiCoder().encode(['bytes'], [signature]))
 						if (isEnableMode(this.useSmartSessions.mode)) {
-							userOp.signature = concat([this.useSmartSessions.mode, packedSignature])
+							userOp.signature = concat([this.useSmartSessions.mode, signature])
 						} else {
 							if (!this.useSmartSessions.permissionId) {
 								throw new Error('USE mode must have permissionId')
@@ -411,7 +400,7 @@ export class WalletService {
 							userOp.signature = concat([
 								this.useSmartSessions.mode,
 								this.useSmartSessions.permissionId,
-								packedSignature,
+								signature,
 							])
 						}
 					} else {
