@@ -19,5 +19,5 @@ const events = (await ecdsaValidator.queryFilter(
 
 for (const event of events) {
 	console.log(event.transactionHash)
-	console.log(event.args)
+	console.log('SA', event.args[0])
 }

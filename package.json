@@ -2,8 +2,12 @@
   "name": "aa",
   "module": "index.ts",
   "type": "module",
-  "devDependencies": {
-    "@types/bun": "latest"
+  "scripts": {
+		"test": "vitest"
+	},
+	"devDependencies": {
+		"@types/bun": "latest",
+    "vitest": "^2.1.8"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
