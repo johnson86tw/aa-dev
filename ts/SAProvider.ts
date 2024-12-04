@@ -1,20 +1,19 @@
-import type { BytesLike, PerformActionRequest } from 'ethers'
-import { AbstractProvider, Contract, isAddress } from 'ethers'
-import { MY_ACCOUNT_FACTORY_ADDRESS } from './sepolia_addresses'
+import type { BytesLike, Signer } from 'ethers'
+import { Contract, isAddress } from 'ethers'
+import { BundlerProvider } from './BundlerProvider'
+import { ECDSA_VALIDATOR_ADDRESS, MY_ACCOUNT_FACTORY_ADDRESS } from './sepolia_addresses'
 
-interface SmartAccountInterface {
-	init(provider: AbstractProvider): SmartAccountInterface
-	getNewAddress(...args: any[]): Promise<string | null>
+type SmartAccountConstructor = {
+	new (provider: BundlerProvider): SmartAccount
 }
 
-export class MyAccount implements SmartAccountInterface {
-	initialized = false
-	provider: AbstractProvider | null = null
+interface SmartAccount {}
 
-	init(provider: AbstractProvider) {
-		this.provider = provider
-		this.initialized = true
-		return this
+export class MyAccount implements SmartAccount {
+	provider: BundlerProvider | null = null
+
+	constructor(_provider: BundlerProvider) {
+		this.provider = _provider
 	}
 
 	async getNewAddress(salt: BytesLike, validator: string, owner: string): Promise<string | null> {
@@ -33,21 +32,32 @@ export class MyAccount implements SmartAccountInterface {
 	}
 }
 
-export class SAProvider extends AbstractProvider {
-	readonly subprovider: AbstractProvider
-	readonly account: SmartAccountInterface
+type Call = {
+	to: string
+	data: string
+	value: string
+}
 
-	constructor(_provider: AbstractProvider, _account: SmartAccountInterface) {
-		super()
-		this.subprovider = _provider
-		this.account = _account.init(_provider)
+type SAProviderOptions = {
+	clientUrl: string
+	bundlerUrl: string
+	smartAccount: SmartAccountConstructor
+	sender: string
+	signer: Signer
+}
+
+export class SAProvider extends BundlerProvider {
+	readonly ECDSA_VALIDATOR_ADDRESS = ECDSA_VALIDATOR_ADDRESS
+	readonly sender: string
+	readonly smartAccount: SmartAccount
+	readonly signer: SAProviderOptions['signer']
+
+	constructor({ clientUrl, bundlerUrl, smartAccount, sender, signer }: SAProviderOptions) {
+		super(clientUrl, bundlerUrl)
+		this.sender = sender
+		this.smartAccount = new smartAccount(this)
+		this.signer = signer
 	}
 
-	_detectNetwork() {
-		return this.subprovider._detectNetwork()
-	}
-
-	async _perform<T = any>(req: PerformActionRequest): Promise<T> {
-		return await this.subprovider._perform(req)
-	}
+	async sendCalls(calls: Call[]) {}
 }
