@@ -25,18 +25,6 @@ export type UserOperation = {
 
 export type PackedUserOperation = ReturnType<typeof packUserOp>
 
-export interface Vendor {
-	getNonceKey(validator: string): Promise<string>
-	getCallData(from: string, calls: Call[]): Promise<string>
-}
-
-export interface SmartAccount {
-	vendor: Vendor
-	signer: {
-		signMessage(message: string | Uint8Array): Promise<string>
-	}
-}
-
 export type Call = {
 	to: string
 	data: string

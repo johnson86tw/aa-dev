@@ -1,11 +1,16 @@
 import type { BytesLike, JsonRpcProvider } from 'ethers'
 import { concat, Contract, isAddress, toBeHex, zeroPadValue } from 'ethers'
 import { addresses } from './constants'
-import type { Call, Vendor } from './types'
+import type { Call } from './types'
 import { abiEncode } from './utils'
 import { Interface } from 'ethers'
 
-export class MyAccount implements Vendor {
+export interface AccountVendor {
+	getNonceKey(validator: string): Promise<string>
+	getCallData(from: string, calls: Call[]): Promise<string>
+}
+
+export class MyAccount implements AccountVendor {
 	async getNonceKey(validator: string) {
 		return zeroPadValue(validator, 24)
 	}

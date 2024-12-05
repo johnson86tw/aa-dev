@@ -1,23 +1,15 @@
-import { Contract, getBytes, hexlify, JsonRpcProvider, randomBytes, toBeHex } from 'ethers'
+import { Contract, hexlify, JsonRpcProvider, randomBytes, toBeHex } from 'ethers'
+import type { AccountValidator } from './accountValidators'
+import type { AccountVendor } from './accountVendors'
 import { BundlerRpcProvider } from './BundlerRpcProvider'
 import { addresses } from './constants'
-import type {
-	Call,
-	CallsResult,
-	Paymaster,
-	PaymasterProvider,
-	RpcRequestArguments,
-	SmartAccount,
-	UserOperation,
-} from './types'
+import type { Call, CallsResult, Paymaster, PaymasterProvider, RpcRequestArguments, UserOperation } from './types'
 import { getEmptyUserOp, packUserOp } from './utils'
-
-type ValidationType = 'ECDSAValidator' | 'WebAuthnValidator' | 'EIP7702Delegation'
 
 type ConstructorOptions = {
 	chainId: number
-	validationType: ValidationType
-	account: SmartAccount
+	validator: AccountValidator
+	vendor: AccountVendor
 	clientUrl: string
 	bundlerUrl: string
 	paymaster?: Paymaster
@@ -26,8 +18,8 @@ type ConstructorOptions = {
 export class SAProvider {
 	// constructor options
 	#chainId: number
-	validationType: ValidationType
-	account: SmartAccount
+	validator: AccountValidator
+	vendor: AccountVendor
 	client: JsonRpcProvider
 	bundler: BundlerRpcProvider
 	paymaster?: Paymaster
@@ -41,8 +33,8 @@ export class SAProvider {
 
 	constructor(options: ConstructorOptions) {
 		this.#chainId = options.chainId
-		this.validationType = options.validationType
-		this.account = options.account
+		this.validator = options.validator
+		this.vendor = options.vendor
 		this.client = new JsonRpcProvider(options.clientUrl)
 		this.bundler = new BundlerRpcProvider(options.bundlerUrl)
 		this.paymaster = options.paymaster
@@ -211,21 +203,16 @@ export class SAProvider {
 	}
 
 	private async getNonce(sender: string): Promise<string> {
-		let nonceKey
-		if (this.validationType === 'ECDSAValidator' || this.validationType === 'WebAuthnValidator') {
-			nonceKey = await this.account.vendor.getNonceKey(addresses.sepolia.ECDSA_VALIDATOR)
-		} else {
-			throw new Error('Unsupported validation type', { cause: this.validationType })
-		}
+		const nonceKey = await this.vendor.getNonceKey(this.validator.address())
 		return await this.#entryPoint.getNonce(sender, nonceKey)
 	}
 
 	private async getCallData(from: string, calls: Call[]) {
-		return await this.account.vendor.getCallData(from, calls)
+		return await this.vendor.getCallData(from, calls)
 	}
 
 	private async getSignature(userOpHash: string) {
-		const signature = await this.account.signer.signMessage(getBytes(userOpHash))
+		const signature = await this.validator.getSignature(userOpHash)
 		return signature
 	}
 
