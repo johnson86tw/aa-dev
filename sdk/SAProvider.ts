@@ -5,6 +5,7 @@ import { BundlerRpcProvider } from './BundlerRpcProvider'
 import { addresses } from './constants'
 import type { Call, CallsResult, Paymaster, PaymasterProvider, RpcRequestArguments, UserOperation } from './types'
 import { getEmptyUserOp, packUserOp } from './utils'
+import { logger } from './logger'
 
 type ConstructorOptions = {
 	chainId: number
@@ -27,9 +28,9 @@ export class SAProvider {
 	// internal state
 	private accounts: string[] = []
 	private callStatuses: Map<string, CallsResult> = new Map()
-	sender: string | null = null
 
-	#entryPoint: Contract
+	private entryPoint: Contract
+	sender: string | null = null
 
 	constructor(options: ConstructorOptions) {
 		this.#chainId = options.chainId
@@ -39,7 +40,7 @@ export class SAProvider {
 		this.bundler = new BundlerRpcProvider(options.bundlerUrl)
 		this.paymaster = options.paymaster
 
-		this.#entryPoint = new Contract(
+		this.entryPoint = new Contract(
 			addresses.sepolia.ENTRY_POINT,
 			[
 				'function getUserOpHash(tuple(address sender, uint256 nonce, bytes initCode, bytes callData, bytes32 accountGasLimits, uint256 preVerificationGas, bytes32 gasFees, bytes paymasterAndData, bytes signature) userOp) external view returns (bytes32)',
@@ -115,58 +116,59 @@ export class SAProvider {
 		calls: Call[]
 		capabilities?: Record<string, any> | undefined
 	}): Promise<string> {
+		logger.info('Sending calls...')
+
 		this.checkCallParams(params) // TODO: check if from is in the accounts
 		const { from, calls } = params
 		const callId = this.genCallId()
 
-		try {
-			this.callStatuses.set(callId, {
-				status: 'PENDING',
-			})
+		this.callStatuses.set(callId, {
+			status: 'PENDING',
+		})
 
-			const { userOp, userOpHash } = await this.buildUserOp(from, calls)
+		logger.info('Building user operation...')
+		const { userOp, userOpHash } = await this.buildUserOp(from, calls)
 
-			const res = await this.bundler.send({
-				method: 'eth_sendUserOperation',
-				params: [userOp, addresses.sepolia.ENTRY_POINT],
-			})
+		logger.info('Sending user operation...')
+		const res = await this.bundler.send({
+			method: 'eth_sendUserOperation',
+			params: [userOp, addresses.sepolia.ENTRY_POINT],
+		})
 
-			if (!res) {
-				throw new Error('Failed to send user operation')
-			}
-
-			let result = null
-			while (result === null) {
-				result = await this.bundler.send({ method: 'eth_getUserOperationReceipt', params: [userOpHash] })
-				if (result === null) {
-					await new Promise(resolve => setTimeout(resolve, 1000))
-					console.log('Waiting for receipt...')
-				}
-			}
-
-			this.callStatuses.set(callId, {
-				status: 'CONFIRMED',
-				receipts: [
-					{
-						logs: result.logs.map((log: any) => ({
-							address: log.address,
-							data: log.data,
-							topics: log.topics,
-						})),
-						status: result.success ? '0x1' : '0x0',
-						chainId: this.#chainId.toString(),
-						blockHash: result.receipt.blockHash,
-						blockNumber: result.receipt.blockNumber,
-						gasUsed: result.receipt.gasUsed,
-						transactionHash: result.receipt.transactionHash,
-					},
-				],
-			})
-		} catch (err) {
+		if (!res) {
 			this.callStatuses.set(callId, {
 				status: 'CONFIRMED',
 			})
+			return callId
 		}
+
+		let result = null
+		while (result === null) {
+			result = await this.bundler.send({ method: 'eth_getUserOperationReceipt', params: [userOpHash] })
+			if (result === null) {
+				await new Promise(resolve => setTimeout(resolve, 1000))
+				console.log('Waiting for receipt...')
+			}
+		}
+
+		this.callStatuses.set(callId, {
+			status: 'CONFIRMED',
+			receipts: [
+				{
+					logs: result.logs.map((log: any) => ({
+						address: log.address,
+						data: log.data,
+						topics: log.topics,
+					})),
+					status: result.success ? '0x1' : '0x0',
+					chainId: this.#chainId.toString(),
+					blockHash: result.receipt.blockHash,
+					blockNumber: result.receipt.blockNumber,
+					gasUsed: result.receipt.gasUsed,
+					transactionHash: result.receipt.transactionHash,
+				},
+			],
+		})
 
 		return callId
 	}
@@ -221,7 +223,7 @@ export class SAProvider {
 		userOp.paymasterPostOpGasLimit = gasValues.paymasterPostOpGasLimit
 
 		// Sign signature
-		const userOpHash = await this.#entryPoint.getUserOpHash(packUserOp(userOp))
+		const userOpHash = await this.entryPoint.getUserOpHash(packUserOp(userOp))
 		userOp.signature = await this.getSignature(userOpHash)
 
 		return {
@@ -232,7 +234,7 @@ export class SAProvider {
 
 	private async getNonce(sender: string): Promise<string> {
 		const nonceKey = await this.vendor.getNonceKey(this.validator.address())
-		return await this.#entryPoint.getNonce(sender, nonceKey)
+		return await this.entryPoint.getNonce(sender, nonceKey)
 	}
 
 	private async getCallData(from: string, calls: Call[]) {

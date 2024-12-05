@@ -3,16 +3,17 @@
   "module": "index.ts",
   "type": "module",
   "scripts": {
-		"test": "vitest"
-	},
-	"devDependencies": {
-		"@types/bun": "latest",
+    "test": "vitest"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
     "vitest": "^2.1.8"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "consola": "^3.2.3",
     "ethers": "^6.13.4",
     "permissionless": "^0.2.13",
     "viem": "^2.21.35"

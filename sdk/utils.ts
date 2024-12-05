@@ -1,6 +1,7 @@
 import { concat, ParamType, toBeHex, zeroPadValue } from 'ethers'
 import type { UserOperation } from './types'
 import { AbiCoder } from 'ethers'
+import { createConsola } from 'consola'
 
 export function abiEncode(types: ReadonlyArray<string | ParamType>, values: ReadonlyArray<any>): string {
 	return new AbiCoder().encode(types, values)

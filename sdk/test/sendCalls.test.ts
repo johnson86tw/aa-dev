@@ -24,6 +24,7 @@ const provider = new SAProvider({
 	vendor: new MyAccount(),
 	clientUrl: CLIENT_URL,
 	bundlerUrl: BUNDLER_URL,
+	debug: true,
 })
 
 const accounts = await provider.requestAccounts()
