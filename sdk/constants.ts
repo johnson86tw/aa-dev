@@ -4,13 +4,7 @@ export const MY_ACCOUNT_ADDRESS = '0x67ce34bc421060b8594cdd361ce201868845045b'
 
 interface Addresses {
 	readonly sepolia: {
-		ENTRY_POINT: string
-		SMART_SESSION: string
-		SIMPLE_SESSION_VALIDATOR: string
-		SUDO_POLICY: string
-		SCHEDULED_TRANSFER: string
-		ECDSA_VALIDATOR: string
-		MY_ACCOUNT_FACTORY: string
+		[key: string]: string
 	}
 }
 
@@ -23,5 +17,6 @@ export const addresses: Addresses = {
 		SCHEDULED_TRANSFER: '0x88EA6ae18FBc2bB092c34F59004940E3cb137506',
 		ECDSA_VALIDATOR: '0xd577C0746c19DeB788c0D698EcAf66721DC2F7A4',
 		MY_ACCOUNT_FACTORY: '0x7cdf84c1d0915748Df0f1dA6d92701ac6A903E41',
+		PAYMASTER: '0xA2E1944eD3294f0202a063cc971ECe09cbd02e43',
 	},
 }

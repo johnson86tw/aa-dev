@@ -3,7 +3,7 @@ import { ECDSAValidator } from '../accountValidators'
 import { MyAccount } from '../accountVendors'
 import { addresses } from '../constants'
 import { SAProvider } from '../SAProvider'
-import type { CallsResult } from '../types'
+import { PaymasterProvider } from '../PaymasterProvider'
 
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
 	throw new Error('Missing .env')
@@ -14,8 +14,10 @@ const CLIENT_URL = process.env.sepolia
 const PIMLICO_API_KEY = process.env.PIMLICO_API_KEY
 const BUNDLER_URL = `https://api.pimlico.io/v2/11155111/rpc?apikey=${PIMLICO_API_KEY}`
 
+const chainId = 11155111
+
 const provider = new SAProvider({
-	chainId: 11155111,
+	chainId,
 	validator: new ECDSAValidator({
 		clientUrl: CLIENT_URL,
 		signer: new Wallet(PRIVATE_KEY),
@@ -24,7 +26,11 @@ const provider = new SAProvider({
 	vendor: new MyAccount(),
 	clientUrl: CLIENT_URL,
 	bundlerUrl: BUNDLER_URL,
-	debug: true,
+	paymaster: new PaymasterProvider({
+		chainId,
+		clientUrl: CLIENT_URL,
+		paymasterAddress: addresses.sepolia.PAYMASTER,
+	}),
 })
 
 const accounts = await provider.requestAccounts()
@@ -40,4 +46,4 @@ const identifier = await provider.sendCalls({
 	],
 })
 const receipts = await provider.waitForReceipts(identifier)
-console.log(receipts)
+console.log(JSON.stringify(receipts, null, 2))

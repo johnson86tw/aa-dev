@@ -146,8 +146,8 @@ export class SAProvider {
 		while (result === null) {
 			result = await this.bundler.send({ method: 'eth_getUserOperationReceipt', params: [userOpHash] })
 			if (result === null) {
+				logger.info('Waiting for eth_getUserOperationReceipt...')
 				await new Promise(resolve => setTimeout(resolve, 1000))
-				console.log('Waiting for receipt...')
 			}
 		}
 
@@ -180,6 +180,7 @@ export class SAProvider {
 			result = await this.getCallStatus(callId)
 
 			if (!result || result.status === 'PENDING') {
+				logger.info('Waiting for receipts...')
 				await new Promise(resolve => setTimeout(resolve, 1000))
 			}
 		}
@@ -234,7 +235,8 @@ export class SAProvider {
 
 	private async getNonce(sender: string): Promise<string> {
 		const nonceKey = await this.vendor.getNonceKey(this.validator.address())
-		return await this.entryPoint.getNonce(sender, nonceKey)
+		const nonce: bigint = await this.entryPoint.getNonce(sender, nonceKey)
+		return toBeHex(nonce)
 	}
 
 	private async getCallData(from: string, calls: Call[]) {
@@ -270,13 +272,15 @@ export class SAProvider {
 
 	private async getGasValues(userOp: UserOperation) {
 		const curGasPrice = await this.bundler.send({ method: 'pimlico_getUserOperationGasPrice' })
+		// Note: user operation max fee per gas must be larger than 0 during gas estimation
+		userOp.maxFeePerGas = curGasPrice.standard.maxFeePerGas
 		const estimateGas = await this.bundler.send({
 			method: 'eth_estimateUserOperationGas',
 			params: [userOp, addresses.sepolia.ENTRY_POINT],
 		})
 
 		return {
-			maxFeePerGas: curGasPrice.standard.maxFeePerGas,
+			maxFeePerGas: userOp.maxFeePerGas,
 			maxPriorityFeePerGas: curGasPrice.standard.maxPriorityFeePerGas,
 			preVerificationGas: estimateGas.preVerificationGas,
 			verificationGasLimit: estimateGas.verificationGasLimit,

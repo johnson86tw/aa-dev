@@ -1,4 +1,5 @@
 import type { RpcRequestArguments } from './types'
+import { logger } from './logger'
 
 export class BundlerRpcProvider {
 	private url: string
@@ -29,7 +30,7 @@ export class BundlerRpcProvider {
 
 		// Check for JSON-RPC error response
 		if (data.error) {
-			throw new Error(`JSON-RPC error: ${request.method} - ${JSON.stringify(data.error)}`)
+			throw new Error(`JSON-RPC Error: ${request.method} ${data.error.code}: ${data.error.message}`)
 		}
 
 		return data.result
