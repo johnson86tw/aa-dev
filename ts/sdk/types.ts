@@ -1,4 +1,4 @@
-export type Address = `0x${string}`
+import type { packUserOp } from './utils'
 
 export type RpcRequestArguments = {
 	readonly method: string
@@ -21,6 +21,20 @@ export type UserOperation = {
 	paymasterPostOpGasLimit: string
 	paymasterData: string | null
 	signature: string
+}
+
+export type PackedUserOperation = ReturnType<typeof packUserOp>
+
+export interface Vendor {
+	getNonceKey(validator: string): Promise<string>
+	getCallData(from: string, calls: Call[]): Promise<string>
+}
+
+export interface SmartAccount {
+	vendor: Vendor
+	signer: {
+		signMessage(message: string | Uint8Array): Promise<string>
+	}
 }
 
 export type Call = {
@@ -50,19 +64,14 @@ export type CallsResult = {
 
 // =============================================== Paymaster ===============================================
 
+export interface PaymasterProvider {
+	getPaymasterStubData(params: GetPaymasterStubDataParams): Promise<GetPaymasterStubDataResult>
+}
+
+export type Paymaster = string | PaymasterProvider | undefined // paymaster url or paymaster provider
+
 export type GetPaymasterStubDataParams = [
-	// Below is specific to Entrypoint v0.6 but this API can be used with other entrypoint versions too
-	{
-		sender: string
-		nonce: string
-		initCode: string
-		callData: string
-		callGasLimit: string
-		verificationGasLimit: string
-		preVerificationGas: string
-		maxFeePerGas: string
-		maxPriorityFeePerGas: string
-	}, // userOp
+	UserOperation, // userOp
 	string, // EntryPoint
 	string, // Chain ID
 	Record<string, any>, // Context
