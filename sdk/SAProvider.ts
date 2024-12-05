@@ -78,7 +78,7 @@ export class SAProvider {
 	}
 
 	async requestAccounts() {
-		return this.accounts
+		return await this.validator.getAccounts()
 	}
 
 	get chainId(): number {
@@ -105,6 +105,10 @@ export class SAProvider {
 		}
 	}
 
+	async getCallStatus(callId: string): Promise<CallsResult | null> {
+		return this.callStatuses.get(callId) || null
+	}
+
 	async sendCalls(params: {
 		version: string
 		from: string
@@ -120,42 +124,7 @@ export class SAProvider {
 				status: 'PENDING',
 			})
 
-			// =============================================== Build userOp ===============================================
-
-			const userOp = getEmptyUserOp()
-			userOp.sender = from
-			userOp.nonce = await this.getNonce(from)
-			userOp.callData = await this.getCallData(from, calls)
-
-			// add dummy signature
-			const dummyECDSASignature =
-				'0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c'
-
-			// TODO: format signature is based on the validator, now just support ECDSAValidator
-			userOp.signature = dummyECDSASignature
-
-			if (this.isPaymasterSupported) {
-				const paymasterInfo = await this.getPaymasterInfo(userOp)
-				userOp.paymaster = paymasterInfo.paymaster
-				userOp.paymasterData = paymasterInfo.paymasterData
-				userOp.paymasterVerificationGasLimit = paymasterInfo.paymasterVerificationGasLimit
-				userOp.paymasterPostOpGasLimit = paymasterInfo.paymasterPostOpGasLimit
-			}
-
-			const gasValues = await this.getGasValues(userOp)
-			userOp.maxFeePerGas = gasValues.maxFeePerGas
-			userOp.maxPriorityFeePerGas = gasValues.maxPriorityFeePerGas
-			userOp.preVerificationGas = gasValues.preVerificationGas
-			userOp.verificationGasLimit = gasValues.verificationGasLimit
-			userOp.callGasLimit = gasValues.callGasLimit
-			userOp.paymasterVerificationGasLimit = gasValues.paymasterVerificationGasLimit
-			userOp.paymasterPostOpGasLimit = gasValues.paymasterPostOpGasLimit
-
-			// Sign signature
-			const userOpHash = await this.#entryPoint.getUserOpHash(packUserOp(userOp))
-			userOp.signature = await this.getSignature(userOpHash)
-
-			// =============================================== Send userOp ===============================================
+			const { userOp, userOpHash } = await this.buildUserOp(from, calls)
 
 			const res = await this.bundler.send({
 				method: 'eth_sendUserOperation',
@@ -200,6 +169,65 @@ export class SAProvider {
 		}
 
 		return callId
+	}
+
+	async waitForReceipts(callId: string): Promise<CallsResult['receipts']> {
+		let result: CallsResult | null = null
+
+		while (!result || result.status === 'PENDING') {
+			result = await this.getCallStatus(callId)
+
+			if (!result || result.status === 'PENDING') {
+				await new Promise(resolve => setTimeout(resolve, 1000))
+			}
+		}
+
+		if (result.status === 'CONFIRMED' && result?.receipts) {
+			return result.receipts
+		}
+
+		throw new Error('No receipts found')
+	}
+
+	private async buildUserOp(
+		from: string,
+		calls: Call[],
+	): Promise<{
+		userOp: UserOperation
+		userOpHash: string
+	}> {
+		const userOp = getEmptyUserOp()
+		userOp.sender = from
+		userOp.nonce = await this.getNonce(from)
+		userOp.callData = await this.getCallData(from, calls)
+
+		userOp.signature = this.validator.getDummySignature()
+
+		if (this.isPaymasterSupported) {
+			const paymasterInfo = await this.getPaymasterInfo(userOp)
+			userOp.paymaster = paymasterInfo.paymaster
+			userOp.paymasterData = paymasterInfo.paymasterData
+			userOp.paymasterVerificationGasLimit = paymasterInfo.paymasterVerificationGasLimit
+			userOp.paymasterPostOpGasLimit = paymasterInfo.paymasterPostOpGasLimit
+		}
+
+		const gasValues = await this.getGasValues(userOp)
+		userOp.maxFeePerGas = gasValues.maxFeePerGas
+		userOp.maxPriorityFeePerGas = gasValues.maxPriorityFeePerGas
+		userOp.preVerificationGas = gasValues.preVerificationGas
+		userOp.verificationGasLimit = gasValues.verificationGasLimit
+		userOp.callGasLimit = gasValues.callGasLimit
+		userOp.paymasterVerificationGasLimit = gasValues.paymasterVerificationGasLimit
+		userOp.paymasterPostOpGasLimit = gasValues.paymasterPostOpGasLimit
+
+		// Sign signature
+		const userOpHash = await this.#entryPoint.getUserOpHash(packUserOp(userOp))
+		userOp.signature = await this.getSignature(userOpHash)
+
+		return {
+			userOp,
+			userOpHash,
+		}
 	}
 
 	private async getNonce(sender: string): Promise<string> {
@@ -273,27 +301,5 @@ export class SAProvider {
 
 	private genCallId(): string {
 		return hexlify(randomBytes(32))
-	}
-
-	private async getCallStatus(callId: string): Promise<CallsResult | null> {
-		return this.callStatuses.get(callId) || null
-	}
-
-	private async waitForReceipts(callId: string): Promise<CallsResult['receipts']> {
-		let result: CallsResult | null = null
-
-		while (!result || result.status === 'PENDING') {
-			result = await this.getCallStatus(callId)
-
-			if (!result || result.status === 'PENDING') {
-				await new Promise(resolve => setTimeout(resolve, 1000))
-			}
-		}
-
-		if (result.status === 'CONFIRMED' && result?.receipts) {
-			return result.receipts
-		}
-
-		throw new Error('No receipts found')
 	}
 }
