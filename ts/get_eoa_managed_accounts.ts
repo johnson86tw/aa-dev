@@ -1,7 +1,7 @@
 import { Contract } from 'ethers'
 import { JsonRpcProvider } from 'ethers'
 import type { EventLog } from 'ethers'
-import { addresses } from './sdk/constants'
+import { addresses } from '../sdk/constants'
 
 const eoaManagerAddress = '0xd78B5013757Ea4A7841811eF770711e6248dC282'
 
