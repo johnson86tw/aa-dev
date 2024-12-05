@@ -30,7 +30,6 @@ export class SAProvider {
 	private callStatuses: Map<string, CallsResult> = new Map()
 
 	private entryPoint: Contract
-	sender: string | null = null
 
 	constructor(options: ConstructorOptions) {
 		this.#chainId = options.chainId
@@ -89,10 +88,6 @@ export class SAProvider {
 
 	get isPaymasterSupported() {
 		return this.paymaster !== undefined
-	}
-
-	setSender(address: string) {
-		this.sender = address
 	}
 
 	async getCapabilities(params: string[]): Promise<Record<string, Record<string, any>>> {
