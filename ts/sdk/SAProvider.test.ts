@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { SAProvider } from './SAProvider'
 import { Wallet } from 'ethers'
+import { MyAccount } from './accountVendors'
 
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
 	throw new Error('Missing .env')
@@ -16,7 +17,10 @@ describe('SAProvider', () => {
 		const provider = new SAProvider({
 			chainId: 11155111,
 			validationType: 'ECDSAValidator',
-			signer: new Wallet(PRIVATE_KEY),
+			account: {
+				vendor: new MyAccount(),
+				signer: new Wallet(PRIVATE_KEY),
+			},
 			clientUrl: RPC_URL,
 			bundlerUrl: BUNDLER_URL,
 		})
