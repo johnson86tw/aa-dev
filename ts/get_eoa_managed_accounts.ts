@@ -1,14 +1,14 @@
 import { Contract } from 'ethers'
 import { JsonRpcProvider } from 'ethers'
-import { ECDSA_VALIDATOR_ADDRESS } from './sepolia_addresses'
 import type { EventLog } from 'ethers'
+import { addresses } from './sdk/constants'
 
 const eoaManagerAddress = '0xd78B5013757Ea4A7841811eF770711e6248dC282'
 
 const provider = new JsonRpcProvider(process.env.sepolia)
 
 const ecdsaValidator = new Contract(
-	ECDSA_VALIDATOR_ADDRESS,
+	addresses.sepolia.ECDSA_VALIDATOR,
 	['event OwnerRegistered(address indexed kernel, address indexed owner)'],
 	provider,
 )
