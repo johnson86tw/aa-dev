@@ -121,10 +121,8 @@ export class SAProvider {
 			status: 'PENDING',
 		})
 
-		logger.info('Building user operation...')
 		const { userOp, userOpHash } = await this.buildUserOp(from, calls)
 
-		logger.info('Sending user operation...')
 		const res = await this.bundler.send({
 			method: 'eth_sendUserOperation',
 			params: [userOp, addresses.sepolia.ENTRY_POINT],
@@ -137,6 +135,7 @@ export class SAProvider {
 			return callId
 		}
 
+		// TODO: async
 		let result = null
 		while (result === null) {
 			result = await this.bundler.send({ method: 'eth_getUserOperationReceipt', params: [userOpHash] })
@@ -219,6 +218,7 @@ export class SAProvider {
 		userOp.paymasterPostOpGasLimit = gasValues.paymasterPostOpGasLimit
 
 		// Sign signature
+		// TODO: calculate userOpHash without requesting from entryPoint
 		const userOpHash = await this.entryPoint.getUserOpHash(packUserOp(userOp))
 		userOp.signature = await this.getSignature(userOpHash)
 
