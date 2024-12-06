@@ -2,7 +2,7 @@ import { parseEther, toBeHex, Wallet } from 'ethers'
 import { ECDSAValidator } from '../accountValidators'
 import { MyAccount } from '../accountVendors'
 import { addresses } from '../constants'
-import { SAProvider } from '../SAProvider'
+import { WebWallet } from '../WebWallet'
 import { PaymasterProvider } from '../PaymasterProvider'
 
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
@@ -16,7 +16,7 @@ const BUNDLER_URL = `https://api.pimlico.io/v2/11155111/rpc?apikey=${PIMLICO_API
 
 const chainId = 11155111
 
-const provider = new SAProvider({
+const provider = new WebWallet({
 	chainId,
 	validator: new ECDSAValidator({
 		clientUrl: CLIENT_URL,

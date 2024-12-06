@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { SAProvider } from './SAProvider'
+import { WebWallet } from './WebWallet'
 import { parseEther, toBeHex, Wallet } from 'ethers'
 import { MyAccount } from './accountVendors'
 import { ECDSAValidator } from './accountValidators'
@@ -14,11 +14,11 @@ const CLIENT_URL = process.env.sepolia
 const PIMLICO_API_KEY = process.env.PIMLICO_API_KEY
 const BUNDLER_URL = `https://api.pimlico.io/v2/11155111/rpc?apikey=${PIMLICO_API_KEY}`
 
-describe('SAProvider', () => {
-	let provider: SAProvider
+describe('WebWallet', () => {
+	let provider: WebWallet
 
 	beforeEach(() => {
-		provider = new SAProvider({
+		provider = new WebWallet({
 			chainId: 11155111,
 			validator: new ECDSAValidator({
 				clientUrl: CLIENT_URL,

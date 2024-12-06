@@ -16,7 +16,7 @@ type ConstructorOptions = {
 	paymaster?: Paymaster
 }
 
-export class SAProvider {
+export class WebWallet {
 	// constructor options
 	#chainId: number
 	validator: AccountValidator
