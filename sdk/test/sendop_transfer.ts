@@ -4,7 +4,7 @@ import { addresses } from '../constants'
 import { PaymasterProvider } from '../PaymasterProvider'
 import { WebWallet } from '../WebWallet'
 import { logger } from '../logger'
-import { MyAccount } from '../accountVendors'
+import { MyAccount } from '../vendors/MyAccount'
 
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
 	throw new Error('Missing .env')

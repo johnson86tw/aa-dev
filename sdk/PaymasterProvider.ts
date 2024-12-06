@@ -31,6 +31,20 @@ export class PaymasterProvider {
 			throw new Error('Entrypoint or chain id is incorrect')
 		}
 
+		// for charity paymaster
+		if (this.#paymasterAddress === addresses.sepolia.CHARITY_PAYMASTER) {
+			return {
+				sponsor: {
+					name: 'My Wallet',
+				},
+				paymaster: this.#paymasterAddress,
+				paymasterData: '0x',
+				paymasterVerificationGasLimit: toBeHex(999_999n),
+				paymasterPostOpGasLimit: toBeHex(999_999n),
+				isFinal: true,
+			}
+		}
+
 		// check sender is in allowlist
 		const isAllowed = await this.#paymaster.isAllowed(params[0].sender)
 		if (!isAllowed) {

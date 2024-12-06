@@ -37,7 +37,7 @@ const wallet = new WebWallet({
 	paymaster: new PaymasterProvider({
 		chainId,
 		clientUrl: CLIENT_URL,
-		paymasterAddress: addresses.sepolia.PAYMASTER,
+		paymasterAddress: addresses.sepolia.CHARITY_PAYMASTER,
 	}),
 })
 
@@ -55,7 +55,7 @@ const address = await new MyAccount().getAddress(wallet.client, ...createParams)
 logger.info(`Address: ${address}`)
 
 // ask user to confirm
-const confirmed = await prompt('Confirm? (y/n)')
+const confirmed = prompt('Confirm? (y/n)')
 if (confirmed !== 'y') {
 	process.exit()
 }
