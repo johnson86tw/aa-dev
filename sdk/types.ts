@@ -1,4 +1,5 @@
 import type { packUserOp } from './utils'
+import type { TransactionReceipt } from 'ethers'
 
 export type RpcRequestArguments = {
 	readonly method: string
@@ -23,31 +24,36 @@ export type UserOperation = {
 	signature: string
 }
 
+export type Log = {
+	logIndex: string
+	transactionIndex: string
+	transactionHash: string
+	blockHash: string
+	blockNumber: string
+	address: string
+	data: string
+	topics: string[]
+}
+
+export type UserOperationResult = {
+	userOpHash: string
+	entryPoint: string
+	sender: string
+	nonce: string
+	paymaster: string
+	actualGasUsed: string
+	actualGasCost: string
+	success: boolean
+	logs: Log[]
+	receipt: TransactionReceipt
+}
+
 export type PackedUserOperation = ReturnType<typeof packUserOp>
 
-export type Call = {
+export type Execution = {
 	to: string
 	data: string
 	value: string
-	chainId?: string
-}
-
-// ERC-5792 GetCallsResult
-export type CallsResult = {
-	status: 'PENDING' | 'CONFIRMED'
-	receipts?: {
-		logs: {
-			address: string
-			data: string
-			topics: string[]
-		}[]
-		status: string // Hex 1 or 0 for success or failure, respectively
-		chainId: string
-		blockHash: string
-		blockNumber: string
-		gasUsed: string
-		transactionHash: string
-	}[]
 }
 
 // =============================================== Paymaster ===============================================
@@ -55,8 +61,6 @@ export type CallsResult = {
 export interface PaymasterProvider {
 	getPaymasterStubData(params: GetPaymasterStubDataParams): Promise<GetPaymasterStubDataResult>
 }
-
-export type Paymaster = string | PaymasterProvider | undefined // paymaster url or paymaster provider
 
 export type GetPaymasterStubDataParams = [
 	UserOperation, // userOp

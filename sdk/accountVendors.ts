@@ -1,13 +1,13 @@
 import type { BytesLike, JsonRpcProvider } from 'ethers'
 import { concat, Contract, isAddress, toBeHex, zeroPadValue } from 'ethers'
 import { addresses } from './constants'
-import type { Call } from './types'
+import type { Execution } from './types'
 import { abiEncode } from './utils'
 import { Interface } from 'ethers'
 
 export interface AccountVendor {
 	getNonceKey(validator: string): Promise<string>
-	getCallData(from: string, calls: Call[]): Promise<string>
+	getCallData(from: string, executions: Execution[]): Promise<string>
 }
 
 export class MyAccount implements AccountVendor {
@@ -15,16 +15,16 @@ export class MyAccount implements AccountVendor {
 		return zeroPadValue(validator, 24)
 	}
 
-	async getCallData(from: string, calls: Call[]) {
+	async getCallData(from: string, executions: Execution[]) {
 		let callData
 
-		// if one of the call is to SA itself, it must be a single call
-		if (calls.some(call => call.to === from)) {
-			if (calls.length > 1) {
-				throw new Error('If one of the call is to SA itself, it must be a single call')
+		// if one of the execution is to SA itself, it must be a single execution
+		if (executions.some(execution => execution.to === from)) {
+			if (executions.length > 1) {
+				throw new Error('If one of the execution is to SA itself, it must be a single execution')
 			}
 
-			callData = calls[0].data
+			callData = executions[0].data
 		} else {
 			/**
 			 * ModeCode:
@@ -34,7 +34,7 @@ export class MyAccount implements AccountVendor {
 			 * | 1 byte    | 1 byte    |   4 bytes  | 4 bytes       |   22 bytes    |
 			 * |--------------------------------------------------------------------|
 			 */
-			const callType = calls.length > 1 ? '0x01' : '0x00'
+			const callType = executions.length > 1 ? '0x01' : '0x00'
 			const modeCode = concat([
 				callType,
 				'0x00',
@@ -43,10 +43,10 @@ export class MyAccount implements AccountVendor {
 				'0x00000000000000000000000000000000000000000000',
 			])
 
-			const executions = calls.map(call => ({
-				target: call.to || '0x',
-				value: BigInt(call.value || '0x0'),
-				data: call.data || '0x',
+			const executionsData = executions.map(execution => ({
+				target: execution.to || '0x',
+				value: BigInt(execution.value || '0x0'),
+				data: execution.data || '0x',
 			}))
 
 			let executionCalldata
@@ -54,19 +54,20 @@ export class MyAccount implements AccountVendor {
 				// batch execution
 				executionCalldata = abiEncode(
 					['tuple(address,uint256,bytes)[]'],
-					[executions.map(execution => [execution.target, execution.value, execution.data])],
+					[executionsData.map(execution => [execution.target, execution.value, execution.data])],
 				)
 			} else {
 				// single execution
 				executionCalldata = concat([
-					executions[0].target,
-					zeroPadValue(toBeHex(executions[0].value), 32),
-					executions[0].data,
+					executionsData[0].target,
+					zeroPadValue(toBeHex(executionsData[0].value), 32),
+					executionsData[0].data,
 				])
 			}
 
-			const IMyAccount = new Interface(['function execute(bytes32 mode, bytes calldata executionCalldata)'])
-			callData = IMyAccount.encodeFunctionData('execute', [modeCode, executionCalldata])
+			callData = new Interface([
+				'function execute(bytes32 mode, bytes calldata executionCalldata)',
+			]).encodeFunctionData('execute', [modeCode, executionCalldata])
 		}
 
 		if (!callData) {

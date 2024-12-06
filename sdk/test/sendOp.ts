@@ -1,9 +1,9 @@
 import { parseEther, toBeHex, Wallet } from 'ethers'
 import { ECDSAValidator } from '../accountValidators'
-import { MyAccount } from '../accountVendors'
 import { addresses } from '../constants'
-import { WebWallet } from '../WebWallet'
 import { PaymasterProvider } from '../PaymasterProvider'
+import { WebWallet } from '../WebWallet'
+import { logger } from '../logger'
 
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
 	throw new Error('Missing .env')
@@ -16,16 +16,17 @@ const BUNDLER_URL = `https://api.pimlico.io/v2/11155111/rpc?apikey=${PIMLICO_API
 
 const chainId = 11155111
 
-const provider = new WebWallet({
+const wallet = new WebWallet({
 	chainId,
-	validator: new ECDSAValidator({
-		clientUrl: CLIENT_URL,
-		signer: new Wallet(PRIVATE_KEY),
-		address: addresses.sepolia.ECDSA_VALIDATOR,
-	}),
-	vendor: new MyAccount(),
 	clientUrl: CLIENT_URL,
 	bundlerUrl: BUNDLER_URL,
+	validators: {
+		'eoa-managed': new ECDSAValidator({
+			clientUrl: CLIENT_URL,
+			signer: new Wallet(PRIVATE_KEY),
+			address: addresses.sepolia.ECDSA_VALIDATOR,
+		}),
+	},
 	paymaster: new PaymasterProvider({
 		chainId,
 		clientUrl: CLIENT_URL,
@@ -33,11 +34,14 @@ const provider = new WebWallet({
 	}),
 })
 
-const accounts = await provider.requestAccounts()
-const identifier = await provider.sendCalls({
-	version: '1',
-	from: accounts[1],
-	calls: [
+logger.info('Fetching accounts...')
+const accounts = await wallet.fetchAccountsByValidator('eoa-managed')
+
+logger.info('Sending op...')
+const userOpHash = await wallet.sendOp({
+	validatorId: 'eoa-managed',
+	from: accounts[1].address,
+	executions: [
 		{
 			to: '0xd78B5013757Ea4A7841811eF770711e6248dC282',
 			data: '0x',
@@ -45,5 +49,7 @@ const identifier = await provider.sendCalls({
 		},
 	],
 })
-const receipts = await provider.waitForReceipts(identifier)
-console.log(JSON.stringify(receipts, null, 2))
+
+logger.info('Waiting for receipt...')
+const receipt = await wallet.waitForReceipt(userOpHash)
+console.log(receipt)

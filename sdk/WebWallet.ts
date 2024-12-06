@@ -1,40 +1,48 @@
-import { Contract, hexlify, JsonRpcProvider, randomBytes, toBeHex } from 'ethers'
-import type { AccountValidator } from './accountValidators'
-import type { AccountVendor } from './accountVendors'
+import { Contract, JsonRpcProvider, toBeHex, TransactionReceipt } from 'ethers'
+import { type AccountValidator } from './accountValidators'
+import { MyAccount, type AccountVendor } from './accountVendors'
 import { BundlerRpcProvider } from './BundlerRpcProvider'
 import { addresses } from './constants'
-import type { Call, CallsResult, Paymaster, PaymasterProvider, RpcRequestArguments, UserOperation } from './types'
+import type { Execution, PaymasterProvider, UserOperation, UserOperationResult } from './types'
 import { getEmptyUserOp, packUserOp } from './utils'
-import { logger } from './logger'
 
 type ConstructorOptions = {
 	chainId: number
-	validator: AccountValidator
-	vendor: AccountVendor
 	clientUrl: string
 	bundlerUrl: string
-	paymaster?: Paymaster
+	validators: {
+		[key: string]: AccountValidator
+	}
+	paymaster?: PaymasterProvider
+}
+
+type Account = {
+	[address: string]: string
 }
 
 export class WebWallet {
-	// constructor options
-	#chainId: number
-	validator: AccountValidator
-	vendor: AccountVendor
+	chainId: number
 	client: JsonRpcProvider
 	bundler: BundlerRpcProvider
-	paymaster?: Paymaster
+	validators: {
+		[key: string]: AccountValidator
+	}
+	paymaster?: PaymasterProvider
 
-	// internal state
-	private accounts: string[] = []
-	private callStatuses: Map<string, CallsResult> = new Map()
+	private vendors: {
+		[accountId: string]: AccountVendor
+	} = {
+		'johnson86tw.0.0.1': new MyAccount(),
+	}
 
-	private entryPoint: Contract
+	accounts: Account = {}
+
+	static readonly ENTRYPOINT_VERSION = 'v0.7'
+	entryPoint: Contract
 
 	constructor(options: ConstructorOptions) {
-		this.#chainId = options.chainId
-		this.validator = options.validator
-		this.vendor = options.vendor
+		this.chainId = options.chainId
+		this.validators = options.validators
 		this.client = new JsonRpcProvider(options.clientUrl)
 		this.bundler = new BundlerRpcProvider(options.bundlerUrl)
 		this.paymaster = options.paymaster
@@ -50,155 +58,102 @@ export class WebWallet {
 		)
 	}
 
-	async request(request: RpcRequestArguments) {
-		switch (request.method) {
-			case 'eth_requestAccounts':
-				return this.accounts
-			case 'eth_chainId':
-				return this.chainId
-			case 'wallet_getCapabilities':
-			case 'wallet_switchEthereumChain':
-			case 'eth_ecRecover':
-			case 'personal_sign':
-			case 'personal_ecRecover':
-			case 'eth_signTransaction':
-			case 'eth_sendTransaction':
-			case 'eth_signTypedData_v1':
-			case 'eth_signTypedData_v3':
-			case 'eth_signTypedData_v4':
-			case 'eth_signTypedData':
-			case 'wallet_addEthereumChain':
-			case 'wallet_watchAsset':
-			case 'wallet_sendCalls':
-			case 'wallet_showCallsStatus':
-			case 'wallet_grantPermissions':
-			default:
-				throw new Error('Invalid method')
-		}
-	}
-
-	async requestAccounts() {
-		return await this.validator.getAccounts()
-	}
-
-	get chainId(): number {
-		// TODO: check if the client and bundler chainIds mismatch with #chainId
-		return this.#chainId
-	}
-
 	get isPaymasterSupported() {
 		return this.paymaster !== undefined
 	}
 
-	async getCapabilities(params: string[]): Promise<Record<string, Record<string, any>>> {
-		// TODO: get capabilities for specific address
-		return {
-			[toBeHex(this.#chainId)]: {
-				paymasterService: {
-					supported: this.isPaymasterSupported,
-				},
-			},
+	get getAccounts() {
+		return Object.keys(this.accounts)
+	}
+
+	async fetchAccountsByValidator(validatorId: string): Promise<
+		{
+			address: string
+			accountId: string
+		}[]
+	> {
+		const accounts = await this.validators[validatorId].getAccounts()
+		const res: {
+			address: string
+			accountId: string
+		}[] = []
+		for (const address of accounts) {
+			const sa = new Contract(
+				address,
+				['function accountId() external pure returns (string memory)'],
+				this.client,
+			)
+			const accountId = await sa.accountId()
+			res.push({
+				address,
+				accountId,
+			})
 		}
+
+		this.accounts = res.reduce((acc, cur) => {
+			acc[cur.address] = cur.accountId
+			return acc
+		}, {} as Account)
+
+		return res
 	}
 
-	async getCallStatus(callId: string): Promise<CallsResult | null> {
-		return this.callStatuses.get(callId) || null
-	}
-
-	async sendCalls(params: {
-		version: string
+	async sendOp(params: {
+		validatorId: string
 		from: string
-		calls: Call[]
+		executions: Execution[]
 		capabilities?: Record<string, any> | undefined
 	}): Promise<string> {
-		logger.info('Sending calls...')
+		// TODO: check if from is in the accounts
 
-		this.checkCallParams(params) // TODO: check if from is in the accounts
-		const { from, calls } = params
-		const callId = this.genCallId()
+		const { validatorId, from, executions } = params
 
-		this.callStatuses.set(callId, {
-			status: 'PENDING',
-		})
+		const { userOp, userOpHash } = await this.buildUserOp(validatorId, from, executions)
 
-		const { userOp, userOpHash } = await this.buildUserOp(from, calls)
-
-		const res = await this.bundler.send({
+		await this.bundler.send({
 			method: 'eth_sendUserOperation',
 			params: [userOp, addresses.sepolia.ENTRY_POINT],
 		})
 
-		if (!res) {
-			this.callStatuses.set(callId, {
-				status: 'CONFIRMED',
-			})
-			return callId
-		}
+		return userOpHash
+	}
 
-		// TODO: async
-		let result = null
+	async waitForResult(userOpHash: string): Promise<UserOperationResult> {
+		let result: UserOperationResult | null = null
 		while (result === null) {
 			result = await this.bundler.send({ method: 'eth_getUserOperationReceipt', params: [userOpHash] })
 			if (result === null) {
-				logger.info('Waiting for eth_getUserOperationReceipt...')
 				await new Promise(resolve => setTimeout(resolve, 1000))
 			}
 		}
-
-		this.callStatuses.set(callId, {
-			status: 'CONFIRMED',
-			receipts: [
-				{
-					logs: result.logs.map((log: any) => ({
-						address: log.address,
-						data: log.data,
-						topics: log.topics,
-					})),
-					status: result.success ? '0x1' : '0x0',
-					chainId: this.#chainId.toString(),
-					blockHash: result.receipt.blockHash,
-					blockNumber: result.receipt.blockNumber,
-					gasUsed: result.receipt.gasUsed,
-					transactionHash: result.receipt.transactionHash,
-				},
-			],
-		})
-
-		return callId
+		return result
 	}
 
-	async waitForReceipts(callId: string): Promise<CallsResult['receipts']> {
-		let result: CallsResult | null = null
-
-		while (!result || result.status === 'PENDING') {
-			result = await this.getCallStatus(callId)
-
-			if (!result || result.status === 'PENDING') {
-				logger.info('Waiting for receipts...')
+	async waitForReceipt(userOpHash: string): Promise<TransactionReceipt> {
+		let result: UserOperationResult | null = null
+		while (result === null) {
+			result = await this.bundler.send({ method: 'eth_getUserOperationReceipt', params: [userOpHash] })
+			if (result === null) {
 				await new Promise(resolve => setTimeout(resolve, 1000))
 			}
 		}
-
-		if (result.status === 'CONFIRMED' && result?.receipts) {
-			return result.receipts
-		}
-
-		throw new Error('No receipts found')
+		return result.receipt
 	}
 
 	private async buildUserOp(
+		validatorId: string,
 		from: string,
-		calls: Call[],
+		executions: Execution[],
 	): Promise<{
 		userOp: UserOperation
 		userOpHash: string
 	}> {
 		const userOp = getEmptyUserOp()
 		userOp.sender = from
-		userOp.nonce = await this.getNonce(from)
-		userOp.callData = await this.getCallData(from, calls)
+		userOp.nonce = await this.getNonce(validatorId, from)
+		userOp.callData = await this.getCallData(from, executions)
 
-		userOp.signature = this.validator.getDummySignature()
+		userOp.signature = this.validators[validatorId].getDummySignature()
 
 		if (this.isPaymasterSupported) {
 			const paymasterInfo = await this.getPaymasterInfo(userOp)
@@ -220,7 +175,7 @@ export class WebWallet {
 		// Sign signature
 		// TODO: calculate userOpHash without requesting from entryPoint
 		const userOpHash = await this.entryPoint.getUserOpHash(packUserOp(userOp))
-		userOp.signature = await this.getSignature(userOpHash)
+		userOp.signature = await this.getSignature(validatorId, userOpHash)
 
 		return {
 			userOp,
@@ -228,18 +183,29 @@ export class WebWallet {
 		}
 	}
 
-	private async getNonce(sender: string): Promise<string> {
-		const nonceKey = await this.vendor.getNonceKey(this.validator.address())
-		const nonce: bigint = await this.entryPoint.getNonce(sender, nonceKey)
+	getVendorByAddress(address: string) {
+		const accountId = this.accounts[address]
+		const vendor = this.vendors[accountId]
+		if (!vendor) {
+			throw new Error(`Vendor not found for account ${accountId}`)
+		}
+		return vendor
+	}
+
+	private async getNonce(validatorId: string, from: string): Promise<string> {
+		const vendor = this.getVendorByAddress(from)
+		const nonceKey = await vendor.getNonceKey(this.validators[validatorId].address())
+		const nonce: bigint = await this.entryPoint.getNonce(from, nonceKey)
 		return toBeHex(nonce)
 	}
 
-	private async getCallData(from: string, calls: Call[]) {
-		return await this.vendor.getCallData(from, calls)
+	private async getCallData(from: string, executions: Execution[]) {
+		const vendor = this.getVendorByAddress(from)
+		return await vendor.getCallData(from, executions)
 	}
 
-	private async getSignature(userOpHash: string) {
-		const signature = await this.validator.getSignature(userOpHash)
+	private async getSignature(validatorId: string, userOpHash: string) {
+		const signature = await this.validators[validatorId].getSignature(userOpHash)
 		return signature
 	}
 
@@ -249,7 +215,7 @@ export class WebWallet {
 			const paymasterResult = await paymasterProvider.getPaymasterStubData([
 				userOp,
 				addresses.sepolia.ENTRY_POINT,
-				this.#chainId.toString(),
+				this.chainId.toString(),
 				{}, // Context
 			])
 
@@ -283,24 +249,5 @@ export class WebWallet {
 			paymasterVerificationGasLimit: estimateGas.paymasterVerificationGasLimit,
 			paymasterPostOpGasLimit: estimateGas.paymasterPostOpGasLimit,
 		}
-	}
-
-	/**
-	 * Validate all calls are on the same chain
-	 * @param params
-	 */
-	private checkCallParams(params: { version: string; from: string; calls: Call[] }) {
-		if (!params.from || !params.calls || !Array.isArray(params.calls)) {
-			throw new Error('Invalid request format')
-		}
-
-		const chainIds = new Set(params.calls.map(call => call.chainId))
-		if (chainIds.size > 1) {
-			throw new Error('All calls must be on the same chain')
-		}
-	}
-
-	private genCallId(): string {
-		return hexlify(randomBytes(32))
 	}
 }
