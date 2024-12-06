@@ -35,7 +35,7 @@ export type Log = {
 	topics: string[]
 }
 
-export type UserOperationResult = {
+export type UserOperationReceipt = {
 	userOpHash: string
 	entryPoint: string
 	sender: string

@@ -3,7 +3,7 @@ import { type AccountValidator } from './accountValidators'
 import { MyAccount, type AccountVendor } from './accountVendors'
 import { BundlerRpcProvider } from './BundlerRpcProvider'
 import { addresses } from './constants'
-import type { Execution, PaymasterProvider, UserOperation, UserOperationResult } from './types'
+import type { Execution, PaymasterProvider, UserOperation, UserOperationReceipt } from './types'
 import { getEmptyUserOp, packUserOp } from './utils'
 
 type ConstructorOptions = {
@@ -118,8 +118,8 @@ export class WebWallet {
 		return userOpHash
 	}
 
-	async waitForResult(userOpHash: string): Promise<UserOperationResult> {
-		let result: UserOperationResult | null = null
+	async waitForOpReceipt(userOpHash: string): Promise<UserOperationReceipt> {
+		let result: UserOperationReceipt | null = null
 		while (result === null) {
 			result = await this.bundler.send({ method: 'eth_getUserOperationReceipt', params: [userOpHash] })
 			if (result === null) {
@@ -127,17 +127,6 @@ export class WebWallet {
 			}
 		}
 		return result
-	}
-
-	async waitForReceipt(userOpHash: string): Promise<TransactionReceipt> {
-		let result: UserOperationResult | null = null
-		while (result === null) {
-			result = await this.bundler.send({ method: 'eth_getUserOperationReceipt', params: [userOpHash] })
-			if (result === null) {
-				await new Promise(resolve => setTimeout(resolve, 1000))
-			}
-		}
-		return result.receipt
 	}
 
 	private async buildUserOp(

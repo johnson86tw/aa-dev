@@ -51,5 +51,5 @@ const userOpHash = await wallet.sendOp({
 })
 
 logger.info('Waiting for receipt...')
-const receipt = await wallet.waitForReceipt(userOpHash)
+const receipt = await wallet.waitForOpReceipt(userOpHash)
 console.log(receipt)
