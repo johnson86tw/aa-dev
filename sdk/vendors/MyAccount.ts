@@ -1,16 +1,14 @@
 import type { BytesLike, JsonRpcProvider } from 'ethers'
 import { concat, Contract, isAddress, toBeHex, zeroPadValue } from 'ethers'
-import { addresses } from './constants'
-import type { Execution } from './types'
-import { abiEncode } from './utils'
+import { addresses } from '../constants'
+import type { Execution } from '../types'
+import { abiEncode } from '../utils'
 import { Interface } from 'ethers'
+import { AccountVendor } from '../types'
 
-export interface AccountVendor {
-	getNonceKey(validator: string): Promise<string>
-	getCallData(from: string, executions: Execution[]): Promise<string>
-}
+export class MyAccount extends AccountVendor {
+	static readonly accountId = 'johnson86tw.0.0.1'
 
-export class MyAccount implements AccountVendor {
 	async getNonceKey(validator: string) {
 		return zeroPadValue(validator, 24)
 	}
@@ -77,12 +75,7 @@ export class MyAccount implements AccountVendor {
 		return callData
 	}
 
-	async getNewAddress(
-		provider: JsonRpcProvider,
-		salt: BytesLike,
-		validator: string,
-		owner: string,
-	): Promise<string | null> {
+	async getAddress(provider: JsonRpcProvider, salt: BytesLike, validator: string, owner: string): Promise<string> {
 		const myAccountFactory = new Contract(
 			addresses.sepolia.MY_ACCOUNT_FACTORY,
 			['function getAddress(uint256 salt, address validator, bytes calldata data) public view returns (address)'],
@@ -91,9 +84,18 @@ export class MyAccount implements AccountVendor {
 		const address = await myAccountFactory['getAddress(uint256,address,bytes)'](salt, validator, owner)
 
 		if (!isAddress(address)) {
-			return null
+			throw new Error('Failed to get new address')
 		}
 
 		return address
+	}
+
+	getInitCodeData(salt: BytesLike, validator: string, owner: string) {
+		return {
+			factory: addresses.sepolia.MY_ACCOUNT_FACTORY,
+			factoryData: new Interface([
+				'function createAccount(uint256 salt, address validator, bytes calldata data)',
+			]).encodeFunctionData('createAccount', [salt, validator, owner]),
+		}
 	}
 }

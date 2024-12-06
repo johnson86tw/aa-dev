@@ -1,5 +1,5 @@
 import { concat, ParamType, toBeHex, zeroPadValue } from 'ethers'
-import type { UserOperation } from './types'
+import type { PackedUserOperation, UserOperation } from './types'
 import { AbiCoder } from 'ethers'
 import { createConsola } from 'consola'
 
@@ -27,7 +27,7 @@ export function getEmptyUserOp(): UserOperation {
 	}
 }
 
-export function packUserOp(userOp: UserOperation) {
+export function packUserOp(userOp: UserOperation): PackedUserOperation {
 	return {
 		sender: userOp.sender,
 		nonce: userOp.nonce,

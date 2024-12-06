@@ -6,6 +6,18 @@ export type RpcRequestArguments = {
 	readonly params?: readonly unknown[] | object
 }
 
+export type PackedUserOperation = {
+	sender: string
+	nonce: string
+	initCode: string
+	callData: string
+	accountGasLimits: string
+	preVerificationGas: string
+	gasFees: string
+	paymasterAndData: string
+	signature: string
+}
+
 export type UserOperation = {
 	sender: string
 	nonce: string
@@ -48,8 +60,6 @@ export type UserOperationReceipt = {
 	receipt: TransactionReceipt
 }
 
-export type PackedUserOperation = ReturnType<typeof packUserOp>
-
 export type Execution = {
 	to: string
 	data: string
@@ -77,4 +87,17 @@ export type GetPaymasterStubDataResult = {
 	paymasterPostOpGasLimit?: string // Paymaster post-op gas (entrypoint v0.7)
 	paymasterAndData?: string // Paymaster and data (entrypoint v0.6)
 	isFinal?: boolean // Indicates that the caller does not need to call pm_getPaymasterData
+}
+
+// =============================================== Account Vendor ===============================================
+
+export abstract class AccountVendor {
+	static readonly accountId: string
+	abstract getNonceKey(validator: string): Promise<string>
+	abstract getCallData(from: string, executions: Execution[]): Promise<string>
+	abstract getAddress(...args: any[]): Promise<string>
+	abstract getInitCodeData(...args: any[]): {
+		factory: string
+		factoryData: string
+	}
 }

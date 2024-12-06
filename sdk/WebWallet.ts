@@ -1,6 +1,6 @@
 import { Contract, JsonRpcProvider, toBeHex } from 'ethers'
 import { type AccountValidator } from './accountValidators'
-import { type AccountVendor } from './accountVendors'
+import { type AccountVendor } from './types'
 import { BundlerRpcProvider } from './BundlerRpcProvider'
 import { addresses } from './constants'
 import type { Execution, PaymasterProvider, UserOperation, UserOperationReceipt } from './types'
@@ -21,6 +21,11 @@ type ConstructorOptions = {
 
 type Account = {
 	[address: string]: string
+}
+
+type AccountInfo = {
+	address: string
+	accountId: string
 }
 
 export class WebWallet {
@@ -67,17 +72,57 @@ export class WebWallet {
 		return Object.keys(this.accounts)
 	}
 
-	async fetchAccountsByValidator(validatorId: string): Promise<
-		{
-			address: string
-			accountId: string
-		}[]
-	> {
+	async sendOpForAccountCreation(address: string, accountId: string, validatorId: string, createParams: any[]) {
+		const vendor = this.vendors[accountId]
+
+		const sender = await vendor.getAddress(this.client, ...createParams)
+		if (address !== sender) {
+			throw new Error('Sender address mismatch')
+		}
+
+		const { factory, factoryData } = await vendor.getInitCodeData(...createParams)
+
+		const userOp = getEmptyUserOp()
+		userOp.sender = address
+		userOp.nonce = await this.getNonce(vendor, validatorId, address)
+		userOp.factory = factory
+		userOp.factoryData = factoryData
+		userOp.signature = this.validators[validatorId].getDummySignature()
+
+		if (this.isPaymasterSupported) {
+			const paymasterInfo = await this.getPaymasterInfo(userOp)
+			userOp.paymaster = paymasterInfo.paymaster
+			userOp.paymasterData = paymasterInfo.paymasterData
+			userOp.paymasterVerificationGasLimit = paymasterInfo.paymasterVerificationGasLimit
+			userOp.paymasterPostOpGasLimit = paymasterInfo.paymasterPostOpGasLimit
+		}
+
+		const gasValues = await this.getGasValues(userOp)
+		userOp.maxFeePerGas = gasValues.maxFeePerGas
+		userOp.maxPriorityFeePerGas = gasValues.maxPriorityFeePerGas
+		userOp.preVerificationGas = gasValues.preVerificationGas
+		userOp.verificationGasLimit = gasValues.verificationGasLimit
+		userOp.callGasLimit = gasValues.callGasLimit
+		userOp.paymasterVerificationGasLimit = gasValues.paymasterVerificationGasLimit
+		userOp.paymasterPostOpGasLimit = gasValues.paymasterPostOpGasLimit
+
+		// Sign signature
+		// TODO: calculate userOpHash without requesting from entryPoint
+		const userOpHash = await this.entryPoint.getUserOpHash(packUserOp(userOp))
+		userOp.signature = await this.getSignature(validatorId, userOpHash)
+
+		await this.bundler.send({
+			method: 'eth_sendUserOperation',
+			params: [userOp, addresses.sepolia.ENTRY_POINT],
+		})
+
+		return userOpHash
+	}
+
+	async fetchAccountsByValidator(validatorId: string): Promise<AccountInfo[]> {
 		const accounts = await this.validators[validatorId].getAccounts()
-		const res: {
-			address: string
-			accountId: string
-		}[] = []
+		const res: AccountInfo[] = []
+
 		for (const address of accounts) {
 			const sa = new Contract(
 				address,
@@ -140,8 +185,10 @@ export class WebWallet {
 	}> {
 		const userOp = getEmptyUserOp()
 		userOp.sender = from
-		userOp.nonce = await this.getNonce(validatorId, from)
-		userOp.callData = await this.getCallData(from, executions)
+
+		const vendor = this.getVendorByAddress(from)
+		userOp.nonce = await this.getNonce(vendor, validatorId, from)
+		userOp.callData = await this.getCallData(vendor, from, executions)
 
 		userOp.signature = this.validators[validatorId].getDummySignature()
 
@@ -182,15 +229,13 @@ export class WebWallet {
 		return vendor
 	}
 
-	private async getNonce(validatorId: string, from: string): Promise<string> {
-		const vendor = this.getVendorByAddress(from)
+	private async getNonce(vendor: AccountVendor, validatorId: string, from: string): Promise<string> {
 		const nonceKey = await vendor.getNonceKey(this.validators[validatorId].address())
 		const nonce: bigint = await this.entryPoint.getNonce(from, nonceKey)
 		return toBeHex(nonce)
 	}
 
-	private async getCallData(from: string, executions: Execution[]) {
-		const vendor = this.getVendorByAddress(from)
+	private async getCallData(vendor: AccountVendor, from: string, executions: Execution[]) {
 		return await vendor.getCallData(from, executions)
 	}
 
