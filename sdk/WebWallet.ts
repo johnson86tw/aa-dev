@@ -1,6 +1,6 @@
-import { Contract, JsonRpcProvider, toBeHex, TransactionReceipt } from 'ethers'
+import { Contract, JsonRpcProvider, toBeHex } from 'ethers'
 import { type AccountValidator } from './accountValidators'
-import { MyAccount, type AccountVendor } from './accountVendors'
+import { type AccountVendor } from './accountVendors'
 import { BundlerRpcProvider } from './BundlerRpcProvider'
 import { addresses } from './constants'
 import type { Execution, PaymasterProvider, UserOperation, UserOperationReceipt } from './types'
@@ -13,6 +13,9 @@ type ConstructorOptions = {
 	validators: {
 		[key: string]: AccountValidator
 	}
+	vendors: {
+		[key: string]: AccountVendor
+	}
 	paymaster?: PaymasterProvider
 }
 
@@ -21,30 +24,28 @@ type Account = {
 }
 
 export class WebWallet {
+	static readonly ENTRYPOINT_VERSION = 'v0.7'
+	readonly entryPoint: Contract
+
 	chainId: number
 	client: JsonRpcProvider
 	bundler: BundlerRpcProvider
 	validators: {
 		[key: string]: AccountValidator
 	}
-	paymaster?: PaymasterProvider
-
-	private vendors: {
+	vendors: {
 		[accountId: string]: AccountVendor
-	} = {
-		'johnson86tw.0.0.1': new MyAccount(),
 	}
+	paymaster?: PaymasterProvider
 
 	accounts: Account = {}
 
-	static readonly ENTRYPOINT_VERSION = 'v0.7'
-	entryPoint: Contract
-
 	constructor(options: ConstructorOptions) {
 		this.chainId = options.chainId
-		this.validators = options.validators
 		this.client = new JsonRpcProvider(options.clientUrl)
 		this.bundler = new BundlerRpcProvider(options.bundlerUrl)
+		this.validators = options.validators
+		this.vendors = options.vendors
 		this.paymaster = options.paymaster
 
 		this.entryPoint = new Contract(

@@ -4,6 +4,7 @@ import { addresses } from '../constants'
 import { PaymasterProvider } from '../PaymasterProvider'
 import { WebWallet } from '../WebWallet'
 import { logger } from '../logger'
+import { MyAccount } from '../accountVendors'
 
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
 	throw new Error('Missing .env')
@@ -27,6 +28,9 @@ const wallet = new WebWallet({
 			address: addresses.sepolia.ECDSA_VALIDATOR,
 		}),
 	},
+	vendors: {
+		'johnson86tw.0.0.1': new MyAccount(),
+	},
 	paymaster: new PaymasterProvider({
 		chainId,
 		clientUrl: CLIENT_URL,
@@ -36,6 +40,7 @@ const wallet = new WebWallet({
 
 logger.info('Fetching accounts...')
 const accounts = await wallet.fetchAccountsByValidator('eoa-managed')
+logger.info(`Accounts: ${JSON.stringify(accounts, null, 2)}`)
 
 logger.info('Sending op...')
 const userOpHash = await wallet.sendOp({
