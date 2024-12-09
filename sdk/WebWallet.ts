@@ -238,7 +238,7 @@ export class WebWallet {
 		return vendor
 	}
 
-	async getValidatorsByAddress(address: string, _vendor?: AccountVendor): Promise<string[]> {
+	async getValidatorsByAccount(address: string, _vendor?: AccountVendor): Promise<string[]> {
 		const vendor = _vendor || this.getVendorByAddress(address)
 		if (!vendor) {
 			throw new Error(`Vendor not found`)

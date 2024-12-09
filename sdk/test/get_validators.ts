@@ -52,5 +52,5 @@ logger.info(`Accounts: ${JSON.stringify(accounts, null, 2)}`)
 const sender = accounts[1].address
 logger.info('Sender:', sender)
 
-const validators = await wallet.getValidatorsByAddress(sender, wallet.vendors['johnson86tw.0.0.1'])
+const validators = await wallet.getValidatorsByAccount(sender, wallet.vendors['johnson86tw.0.0.1'])
 logger.info('Validators:', validators)
