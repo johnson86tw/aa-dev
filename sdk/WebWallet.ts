@@ -5,6 +5,7 @@ import { BundlerRpcProvider } from './BundlerRpcProvider'
 import { addresses } from './constants'
 import type { Execution, PaymasterProvider, UserOperation, UserOperationReceipt } from './types'
 import { getEmptyUserOp, packUserOp } from './utils'
+import type { EventLog } from 'ethers'
 
 type ConstructorOptions = {
 	chainId: number
@@ -187,6 +188,10 @@ export class WebWallet {
 		userOp.sender = from
 
 		const vendor = this.getVendorByAddress(from)
+		if (!vendor) {
+			throw new Error(`Vendor not found`)
+		}
+
 		userOp.nonce = await this.getNonce(vendor, validatorId, from)
 		userOp.callData = await this.getCallData(vendor, from, executions)
 
@@ -220,13 +225,58 @@ export class WebWallet {
 		}
 	}
 
-	getVendorByAddress(address: string) {
+	getVendorByAddress(address: string): AccountVendor | null {
 		const accountId = this.accounts[address]
 		const vendor = this.vendors[accountId]
 		if (!vendor) {
-			throw new Error(`Vendor not found for account ${accountId}`)
+			return null
 		}
 		return vendor
+	}
+
+	async getValidatorsByAddress(address: string, _vendor?: AccountVendor): Promise<string[]> {
+		const vendor = _vendor || this.getVendorByAddress(address)
+		if (!vendor) {
+			throw new Error(`Vendor not found`)
+		}
+
+		const contract = new Contract(
+			address,
+			[
+				'event ModuleInstalled(uint256 moduleTypeId, address module)',
+				'event ModuleUninstalled(uint256 moduleTypeId, address module)',
+			],
+			this.client,
+		)
+
+		// Get all install/uninstall events
+		const installEvents = (await contract.queryFilter(contract.filters.ModuleInstalled)) as EventLog[]
+		const uninstallEvents = (await contract.queryFilter(contract.filters.ModuleUninstalled)) as EventLog[]
+
+		// Track installed modules
+		const installedModules = new Set<string>()
+
+		// Process events in chronological order
+		const allEvents = [...installEvents, ...uninstallEvents].sort((a, b) => {
+			if (a.blockNumber !== b.blockNumber) {
+				return a.blockNumber - b.blockNumber
+			}
+			return a.transactionIndex - b.transactionIndex
+		})
+
+		// Update tracking of installed modules (only for type 1 - validators)
+		for (const event of allEvents) {
+			const { moduleTypeId, module } = event.args
+			if (moduleTypeId.toString() === '1') {
+				if (event.fragment.name === 'ModuleInstalled') {
+					installedModules.add(module)
+				} else {
+					installedModules.delete(module)
+				}
+			}
+		}
+
+		return Array.from(installedModules)
 	}
 
 	private async getNonce(vendor: AccountVendor, validatorId: string, from: string): Promise<string> {

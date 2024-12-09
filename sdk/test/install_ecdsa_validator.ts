@@ -1,0 +1,67 @@
+import { Interface, parseEther, toBeHex, Wallet } from 'ethers'
+import { ECDSAValidator } from '../accountValidators'
+import { addresses, OWNER_ADDRESS } from '../constants'
+import { PaymasterProvider } from '../PaymasterProvider'
+import { WebWallet } from '../WebWallet'
+import { logger } from '../logger'
+import { MyAccount } from '../vendors/MyAccount'
+import { abiEncode } from '../utils'
+
+if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
+	throw new Error('Missing .env')
+}
+
+const PRIVATE_KEY = process.env.PRIVATE_KEY
+const CLIENT_URL = process.env.sepolia
+const PIMLICO_API_KEY = process.env.PIMLICO_API_KEY
+const BUNDLER_URL = `https://api.pimlico.io/v2/11155111/rpc?apikey=${PIMLICO_API_KEY}`
+
+const chainId = 11155111
+
+const wallet = new WebWallet({
+	chainId,
+	clientUrl: CLIENT_URL,
+	bundlerUrl: BUNDLER_URL,
+	validators: {
+		'eoa-managed': new ECDSAValidator({
+			clientUrl: CLIENT_URL,
+			signer: new Wallet(PRIVATE_KEY),
+			address: addresses.sepolia.ECDSA_VALIDATOR,
+		}),
+	},
+	vendors: {
+		'johnson86tw.0.0.1': new MyAccount(),
+	},
+	paymaster: new PaymasterProvider({
+		chainId,
+		clientUrl: CLIENT_URL,
+		paymasterAddress: addresses.sepolia.PAYMASTER,
+	}),
+})
+
+logger.info('Fetching accounts...')
+const accounts = await wallet.fetchAccountsByValidator('eoa-managed')
+logger.info(`Accounts: ${JSON.stringify(accounts, null, 2)}`)
+
+logger.info('Sending op...')
+const userOpHash = await wallet.sendOp({
+	validatorId: 'eoa-managed',
+	from: accounts[1].address,
+	executions: [
+		{
+			to: accounts[1].address,
+			data: new Interface([
+				'function installModule(uint256 moduleTypeId, address module, bytes calldata initData)',
+			]).encodeFunctionData('installModule', [
+				1,
+				addresses.sepolia.ECDSA_VALIDATOR_2,
+				abiEncode(['bytes'], [OWNER_ADDRESS]),
+			]),
+			value: toBeHex(parseEther('0.001')),
+		},
+	],
+})
+
+logger.info('Waiting for receipt...')
+const receipt = await wallet.waitForOpReceipt(userOpHash)
+console.log(receipt)
