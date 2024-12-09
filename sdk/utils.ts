@@ -1,7 +1,9 @@
-import { concat, ParamType, toBeHex, zeroPadBytes, zeroPadValue } from 'ethers'
+import { AbiCoder, concat, ParamType, toBeHex, zeroPadBytes, zeroPadValue } from 'ethers'
 import type { PackedUserOperation, UserOperation } from './types'
-import { AbiCoder } from 'ethers'
-import { createConsola } from 'consola'
+
+export function is32BytesHexString(data: string) {
+	return data.startsWith('0x') && data.length === 66
+}
 
 export function padLeft(data: string, length: number = 32) {
 	if (!data.startsWith('0x')) {

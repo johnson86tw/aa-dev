@@ -80,7 +80,7 @@ export class WebWallet {
 			throw new Error('Sender address mismatch')
 		}
 
-		const { factory, factoryData } = await vendor.getInitCodeData(...createParams)
+		const { factory, factoryData } = vendor.getInitCodeData(...createParams)
 
 		const userOp = getEmptyUserOp()
 		userOp.sender = address

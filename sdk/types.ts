@@ -1,5 +1,5 @@
 import type { packUserOp } from './utils'
-import type { TransactionReceipt } from 'ethers'
+import type { JsonRpcProvider, TransactionReceipt } from 'ethers'
 
 export type RpcRequestArguments = {
 	readonly method: string
@@ -95,7 +95,7 @@ export abstract class AccountVendor {
 	static readonly accountId: string
 	abstract getNonceKey(validator: string): Promise<string>
 	abstract getCallData(from: string, executions: Execution[]): Promise<string>
-	abstract getAddress(...args: any[]): Promise<string>
+	abstract getAddress(provider: JsonRpcProvider, ...args: any[]): Promise<string>
 	abstract getInitCodeData(...args: any[]): {
 		factory: string
 		factoryData: string
