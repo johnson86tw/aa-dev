@@ -1,10 +1,10 @@
-import { Wallet } from 'ethers'
+import { Interface, Wallet } from 'ethers'
+import { ECDSAValidator } from '../validators/ECDSAValidator'
 import { addresses } from '../constants'
 import { logger } from '../logger'
 import { PaymasterProvider } from '../PaymasterProvider'
 import { MyAccount } from '../vendors/MyAccount'
 import { WebWallet } from '../WebWallet'
-import { ECDSAValidator } from '../validators/ECDSAValidator'
 
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
 	throw new Error('Missing .env')
@@ -17,8 +17,6 @@ const BUNDLER_URL = `https://api.pimlico.io/v2/11155111/rpc?apikey=${PIMLICO_API
 
 const chainId = 11155111
 
-const signer = new Wallet(PRIVATE_KEY)
-
 const wallet = new WebWallet({
 	chainId,
 	clientUrl: CLIENT_URL,
@@ -27,12 +25,7 @@ const wallet = new WebWallet({
 		'eoa-managed': new ECDSAValidator({
 			address: addresses.sepolia.ECDSA_VALIDATOR,
 			clientUrl: CLIENT_URL,
-			signer,
-		}),
-		'eoa-managed-2': new ECDSAValidator({
-			address: addresses.sepolia.ECDSA_VALIDATOR_2,
-			clientUrl: CLIENT_URL,
-			signer,
+			signer: new Wallet(PRIVATE_KEY),
 		}),
 	},
 	vendors: {
@@ -52,5 +45,28 @@ logger.info(`Accounts: ${JSON.stringify(accounts, null, 2)}`)
 const sender = accounts[1].address
 logger.info('Sender:', sender)
 
-const validators = await wallet.getValidatorsByAddress(sender, wallet.vendors['johnson86tw.0.0.1'])
-logger.info('Validators:', validators)
+const confirmed = prompt('Confirm? (y/n)')
+if (confirmed !== 'y') {
+	process.exit()
+}
+
+const deInitData = await MyAccount.getUninstallModuleDeInitData(sender, CLIENT_URL, addresses.sepolia.ECDSA_VALIDATOR_2)
+
+logger.info('Sending op...')
+const userOpHash = await wallet.sendOp({
+	validatorId: 'eoa-managed',
+	from: sender,
+	executions: [
+		{
+			to: sender,
+			data: new Interface([
+				'function uninstallModule(uint256 moduleTypeId, address module, bytes calldata deInitData)',
+			]).encodeFunctionData('uninstallModule', [1, addresses.sepolia.ECDSA_VALIDATOR_2, deInitData]),
+			value: '0x0',
+		},
+	],
+})
+
+logger.info('Waiting for receipt...')
+const receipt = await wallet.waitForOpReceipt(userOpHash)
+logger.info(receipt)

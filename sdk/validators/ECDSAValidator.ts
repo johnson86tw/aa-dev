@@ -1,34 +1,27 @@
-import { Contract, getBytes, JsonRpcProvider, type Signer } from 'ethers'
 import type { EventLog } from 'ethers'
-import { addresses } from './constants'
-
-export interface AccountValidator {
-	address(): string
-	getDummySignature(): string
-	getSignature(userOpHash: string): Promise<string>
-	getAccounts(): Promise<string[]>
-}
+import { Contract, getBytes, JsonRpcProvider, type Signer } from 'ethers'
+import type { AccountValidator } from '../types'
 
 type ConstructorOptions = {
+	address: string
 	clientUrl: string
 	signer: Signer
-	address: string
 }
 
 export class ECDSAValidator implements AccountValidator {
+	#address: string
 	#client: JsonRpcProvider
 	#signer: Signer
-	#address: string
 
 	#ecdsaValidator: Contract
 
 	constructor(options: ConstructorOptions) {
+		this.#address = options.address
 		this.#client = new JsonRpcProvider(options.clientUrl)
 		this.#signer = options.signer
-		this.#address = options.address
 
 		this.#ecdsaValidator = new Contract(
-			addresses.sepolia.ECDSA_VALIDATOR,
+			this.#address,
 			['event OwnerRegistered(address indexed kernel, address indexed owner)'],
 			this.#client,
 		)

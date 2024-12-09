@@ -1,8 +1,8 @@
-import type { BytesLike, JsonRpcProvider } from 'ethers'
+import { JsonRpcProvider, type BytesLike } from 'ethers'
 import { concat, Contract, isAddress, toBeHex, zeroPadValue } from 'ethers'
 import { addresses } from '../constants'
 import type { Execution } from '../types'
-import { abiEncode } from '../utils'
+import { abiEncode, padLeft } from '../utils'
 import { Interface } from 'ethers'
 import { AccountVendor } from '../types'
 
@@ -97,5 +97,38 @@ export class MyAccount extends AccountVendor {
 				'function createAccount(uint256 salt, address validator, bytes calldata data)',
 			]).encodeFunctionData('createAccount', [salt, validator, owner]),
 		}
+	}
+
+	static async getUninstallModuleDeInitData(
+		accountAddress: string,
+		clientUrl: string,
+		uninstallModuleAddress: string,
+	): Promise<string> {
+		const myAccount = new Contract(
+			accountAddress,
+			[
+				'function getValidatorsPaginated(address cursor, uint256 size) external view returns (address[] memory array, address next)',
+			],
+			new JsonRpcProvider(clientUrl),
+		)
+
+		const validators = await myAccount.getValidatorsPaginated(padLeft('0x1', 20), 5)
+		const prev = findPrevious(validators.array, uninstallModuleAddress)
+		function findPrevious(array: string[], entry: string): string {
+			for (let i = 0; i < array.length; i++) {
+				if (array[i].toLowerCase() === entry.toLowerCase()) {
+					if (i === 0) {
+						return padLeft('0x1', 20)
+					} else {
+						return array[i - 1]
+					}
+				}
+			}
+			throw new Error('Entry not found in array')
+		}
+
+		const deInitData = abiEncode(['address', 'bytes'], [prev, '0x'])
+
+		return deInitData
 	}
 }

@@ -1,11 +1,10 @@
+import type { EventLog } from 'ethers'
 import { Contract, JsonRpcProvider, toBeHex } from 'ethers'
-import { type AccountValidator } from './accountValidators'
-import { type AccountVendor } from './types'
 import { BundlerRpcProvider } from './BundlerRpcProvider'
 import { addresses } from './constants'
 import type { Execution, PaymasterProvider, UserOperation, UserOperationReceipt } from './types'
+import { type AccountValidator, type AccountVendor } from './types'
 import { getEmptyUserOp, packUserOp } from './utils'
-import type { EventLog } from 'ethers'
 
 type ConstructorOptions = {
 	chainId: number
@@ -121,7 +120,12 @@ export class WebWallet {
 	}
 
 	async fetchAccountsByValidator(validatorId: string): Promise<AccountInfo[]> {
-		const accounts = await this.validators[validatorId].getAccounts()
+		const validator = this.validators[validatorId]
+		if (!validator) {
+			throw new Error(`Validator not found`)
+		}
+
+		const accounts = await validator.getAccounts()
 		const res: AccountInfo[] = []
 
 		for (const address of accounts) {

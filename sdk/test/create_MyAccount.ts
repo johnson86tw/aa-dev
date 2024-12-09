@@ -1,10 +1,11 @@
-import { parseEther, toBeHex, Wallet } from 'ethers'
-import { ECDSAValidator } from '../accountValidators'
+import type { BytesLike } from 'ethers'
+import { toBeHex, Wallet } from 'ethers'
 import { addresses } from '../constants'
-import { PaymasterProvider } from '../PaymasterProvider'
-import { WebWallet } from '../WebWallet'
 import { logger } from '../logger'
+import { PaymasterProvider } from '../PaymasterProvider'
+import { ECDSAValidator } from '../validators/ECDSAValidator'
 import { MyAccount } from '../vendors/MyAccount'
+import { WebWallet } from '../WebWallet'
 
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
 	throw new Error('Missing .env')
@@ -17,6 +18,8 @@ const BUNDLER_URL = `https://api.pimlico.io/v2/11155111/rpc?apikey=${PIMLICO_API
 
 const chainId = 11155111
 
+const signer = new Wallet(PRIVATE_KEY)
+
 const wallet = new WebWallet({
 	chainId,
 	clientUrl: CLIENT_URL,
@@ -24,7 +27,7 @@ const wallet = new WebWallet({
 	validators: {
 		'eoa-managed': new ECDSAValidator({
 			clientUrl: CLIENT_URL,
-			signer: new Wallet(PRIVATE_KEY),
+			signer,
 			address: addresses.sepolia.ECDSA_VALIDATOR,
 		}),
 	},
@@ -34,26 +37,30 @@ const wallet = new WebWallet({
 	paymaster: new PaymasterProvider({
 		chainId,
 		clientUrl: CLIENT_URL,
-		paymasterAddress: addresses.sepolia.PAYMASTER,
+		paymasterAddress: addresses.sepolia.CHARITY_PAYMASTER,
 	}),
 })
 
-logger.info('Fetching accounts...')
-const accounts = await wallet.fetchAccountsByValidator('eoa-managed')
-logger.info(`Accounts: ${JSON.stringify(accounts, null, 2)}`)
+// generates a random number between 10-99
+const salt = toBeHex(Math.floor(Math.random() * (99 - 10 + 1)) + 10)
+logger.info(`Salt: ${salt}`)
+
+const createParams: [BytesLike, string, string] = [
+	salt, // salt
+	addresses.sepolia.ECDSA_VALIDATOR, // validator
+	signer.address, // owner
+]
+
+const address = await new MyAccount().getAddress(wallet.client, ...createParams)
+logger.info(`Address: ${address}`)
+
+const confirmed = prompt('Confirm? (y/n)')
+if (confirmed !== 'y') {
+	process.exit()
+}
 
 logger.info('Sending op...')
-const userOpHash = await wallet.sendOp({
-	validatorId: 'eoa-managed',
-	from: accounts[1].address,
-	executions: [
-		{
-			to: '0xd78B5013757Ea4A7841811eF770711e6248dC282',
-			data: '0x',
-			value: toBeHex(parseEther('0.001')),
-		},
-	],
-})
+const userOpHash = await wallet.sendOpForAccountCreation(address, 'johnson86tw.0.0.1', 'eoa-managed', createParams)
 
 logger.info('Waiting for receipt...')
 const receipt = await wallet.waitForOpReceipt(userOpHash)

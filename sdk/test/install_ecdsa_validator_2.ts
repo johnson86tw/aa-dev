@@ -1,11 +1,10 @@
-import { Interface, parseEther, toBeHex, Wallet } from 'ethers'
-import { ECDSAValidator } from '../accountValidators'
+import { Interface, Wallet } from 'ethers'
 import { addresses, OWNER_ADDRESS } from '../constants'
-import { PaymasterProvider } from '../PaymasterProvider'
-import { WebWallet } from '../WebWallet'
 import { logger } from '../logger'
+import { PaymasterProvider } from '../PaymasterProvider'
+import { ECDSAValidator } from '../validators/ECDSAValidator'
 import { MyAccount } from '../vendors/MyAccount'
-import { abiEncode } from '../utils'
+import { WebWallet } from '../WebWallet'
 
 if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE_KEY) {
 	throw new Error('Missing .env')
@@ -43,25 +42,29 @@ logger.info('Fetching accounts...')
 const accounts = await wallet.fetchAccountsByValidator('eoa-managed')
 logger.info(`Accounts: ${JSON.stringify(accounts, null, 2)}`)
 
+const sender = accounts[1].address
+logger.info('Sender:', sender)
+
+const confirmed = prompt('Confirm? (y/n)')
+if (confirmed !== 'y') {
+	process.exit()
+}
+
 logger.info('Sending op...')
 const userOpHash = await wallet.sendOp({
 	validatorId: 'eoa-managed',
-	from: accounts[1].address,
+	from: sender,
 	executions: [
 		{
-			to: accounts[1].address,
+			to: sender,
 			data: new Interface([
 				'function installModule(uint256 moduleTypeId, address module, bytes calldata initData)',
-			]).encodeFunctionData('installModule', [
-				1,
-				addresses.sepolia.ECDSA_VALIDATOR_2,
-				abiEncode(['bytes'], [OWNER_ADDRESS]),
-			]),
-			value: toBeHex(parseEther('0.001')),
+			]).encodeFunctionData('installModule', [1, addresses.sepolia.ECDSA_VALIDATOR_2, OWNER_ADDRESS]),
+			value: '0x0',
 		},
 	],
 })
 
 logger.info('Waiting for receipt...')
 const receipt = await wallet.waitForOpReceipt(userOpHash)
-console.log(receipt)
+logger.info(receipt)

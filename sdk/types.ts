@@ -101,3 +101,10 @@ export abstract class AccountVendor {
 		factoryData: string
 	}
 }
+
+export interface AccountValidator {
+	address(): string
+	getDummySignature(): string
+	getSignature(userOpHash: string): Promise<string>
+	getAccounts(): Promise<string[]>
+}
