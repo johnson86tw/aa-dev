@@ -1,10 +1,18 @@
-import { JsonRpcProvider, type BytesLike } from 'ethers'
-import { concat, Contract, isAddress, toBeHex, zeroPadValue } from 'ethers'
+import {
+	concat,
+	Contract,
+	hexlify,
+	Interface,
+	isAddress,
+	JsonRpcProvider,
+	toBeHex,
+	zeroPadValue,
+	type BytesLike,
+} from 'ethers'
 import { addresses } from '../constants'
 import type { Execution } from '../types'
-import { abiEncode, padLeft } from '../utils'
-import { Interface } from 'ethers'
 import { AccountVendor } from '../types'
+import { abiEncode, padLeft } from '../utils'
 
 export class MyAccount extends AccountVendor {
 	static readonly accountId = 'johnson86tw.0.0.1'
@@ -99,7 +107,11 @@ export class MyAccount extends AccountVendor {
 		}
 	}
 
-	static async getUninstallModuleDeInitData(
+	async getInstallModuleInitData(initData: BytesLike) {
+		return hexlify(initData)
+	}
+
+	async getUninstallModuleDeInitData(
 		accountAddress: string,
 		clientUrl: string,
 		uninstallModuleAddress: string,

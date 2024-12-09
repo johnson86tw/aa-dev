@@ -1,3 +1,4 @@
+import { Interface } from 'ethers'
 import type { packUserOp } from './utils'
 import type { JsonRpcProvider, TransactionReceipt } from 'ethers'
 
@@ -100,6 +101,8 @@ export abstract class AccountVendor {
 		factory: string
 		factoryData: string
 	}
+	abstract getInstallModuleInitData(...args: any[]): Promise<string>
+	abstract getUninstallModuleDeInitData(...args: any[]): Promise<string>
 }
 
 export interface AccountValidator {
@@ -108,3 +111,8 @@ export interface AccountValidator {
 	getSignature(userOpHash: string): Promise<string>
 	getAccounts(): Promise<string[]>
 }
+
+export const ERC7579Interface = new Interface([
+	'function installModule(uint256 moduleType, address module, bytes calldata initData)',
+	'function uninstallModule(uint256 moduleType, address module, bytes calldata deInitData)',
+])

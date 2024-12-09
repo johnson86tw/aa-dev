@@ -50,7 +50,11 @@ if (confirmed !== 'y') {
 	process.exit()
 }
 
-const deInitData = await MyAccount.getUninstallModuleDeInitData(sender, CLIENT_URL, addresses.sepolia.ECDSA_VALIDATOR_2)
+const deInitData = await new MyAccount().getUninstallModuleDeInitData(
+	sender,
+	CLIENT_URL,
+	addresses.sepolia.ECDSA_VALIDATOR_2,
+)
 
 logger.info('Sending op...')
 const userOpHash = await wallet.sendOp({

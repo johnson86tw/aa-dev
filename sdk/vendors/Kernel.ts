@@ -1,8 +1,9 @@
-import { concat, Contract, Interface, isAddress, JsonRpcProvider, toBeHex, ZeroAddress, zeroPadValue } from 'ethers'
+import type { BytesLike } from 'ethers'
+import { concat, Contract, hexlify, Interface, isAddress, JsonRpcProvider, toBeHex, ZeroAddress } from 'ethers'
 import { addresses } from '../constants'
 import type { Execution } from '../types'
 import { AccountVendor } from '../types'
-import { abiEncode, is32BytesHexString } from '../utils'
+import { abiEncode, is32BytesHexString, padLeft } from '../utils'
 
 export class Kernel extends AccountVendor {
 	static readonly accountId = 'kernel.advanced.v0.3.1'
@@ -12,6 +13,7 @@ export class Kernel extends AccountVendor {
 	])
 	static readonly kernelInterface = new Interface([
 		'function initialize(bytes21 _rootValidator, address hook, bytes calldata validatorData, bytes calldata hookData, bytes[] calldata initConfig) external',
+		'function execute(bytes32 execMode, bytes calldata executionCalldata)',
 	])
 
 	async getNonceKey(validator: string) {
@@ -65,68 +67,45 @@ export class Kernel extends AccountVendor {
 		])
 	}
 
-	// TODO:
 	async getCallData(from: string, executions: Execution[]) {
-		let callData
+		const execMode = '0x0100000000000000000000000000000000000000000000000000000000000000'
 
-		// if one of the execution is to SA itself, it must be a single execution
-		if (executions.some(execution => execution.to === from)) {
-			if (executions.length > 1) {
-				throw new Error('If one of the execution is to SA itself, it must be a single execution')
-			}
+		const executionsData = executions.map(execution => ({
+			target: execution.to || '0x',
+			value: BigInt(execution.value || '0x0'),
+			data: execution.data || '0x',
+		}))
 
-			callData = executions[0].data
-		} else {
-			/**
-			 * ModeCode:
-			 * |--------------------------------------------------------------------|
-			 * | CALLTYPE  | EXECTYPE  |   UNUSED   | ModeSelector  |  ModePayload  |
-			 * |--------------------------------------------------------------------|
-			 * | 1 byte    | 1 byte    |   4 bytes  | 4 bytes       |   22 bytes    |
-			 * |--------------------------------------------------------------------|
-			 */
-			const callType = executions.length > 1 ? '0x01' : '0x00'
-			const modeCode = concat([
-				callType,
-				'0x00',
-				'0x00000000',
-				'0x00000000',
-				'0x00000000000000000000000000000000000000000000',
-			])
+		const executionCalldata = abiEncode(
+			['tuple(address,uint256,bytes)[]'],
+			[executionsData.map(execution => [execution.target, execution.value, execution.data])],
+		)
 
-			const executionsData = executions.map(execution => ({
-				target: execution.to || '0x',
-				value: BigInt(execution.value || '0x0'),
-				data: execution.data || '0x',
-			}))
-
-			let executionCalldata
-			if (callType === '0x01') {
-				// batch execution
-				executionCalldata = abiEncode(
-					['tuple(address,uint256,bytes)[]'],
-					[executionsData.map(execution => [execution.target, execution.value, execution.data])],
-				)
-			} else {
-				// single execution
-				executionCalldata = concat([
-					executionsData[0].target,
-					zeroPadValue(toBeHex(executionsData[0].value), 32),
-					executionsData[0].data,
-				])
-			}
-
-			callData = new Interface([
-				'function execute(bytes32 mode, bytes calldata executionCalldata)',
-			]).encodeFunctionData('execute', [modeCode, executionCalldata])
-		}
-
-		if (!callData) {
-			throw new Error('Failed to build callData')
-		}
-
-		return callData
+		return Kernel.kernelInterface.encodeFunctionData('execute', [execMode, executionCalldata])
 	}
 
-	// static async getUninstallModuleDeInitData(accountAddress: string, clientUrl: string, uninstallModuleAddress: string)
+	async getInstallModuleInitData(validationData: BytesLike) {
+		const hook = ZeroAddress
+		const validationLength = padLeft(hexlify(validationData))
+		const validationOffset = padLeft('0x60')
+		const hookLength = padLeft('0x0')
+		const hookOffset = padLeft(toBeHex(BigInt(validationOffset) + BigInt(validationLength) + BigInt('0x20')))
+		const selectorLength = padLeft('0x0')
+		const selectorOffset = padLeft(toBeHex(BigInt(hookOffset) + BigInt('0x20')))
+
+		return concat([
+			hook,
+			validationOffset,
+			hookOffset,
+			selectorOffset,
+			validationLength,
+			validationData,
+			hookLength,
+			selectorLength,
+		])
+	}
+
+	async getUninstallModuleDeInitData() {
+		return '0x'
+	}
 }
