@@ -3,6 +3,7 @@ import { addresses } from '../addresses'
 import { logger } from '../logger'
 import { PaymasterProvider } from '../PaymasterProvider'
 import { ECDSAValidator } from '../validators/ECDSAValidator'
+import { Kernel } from '../vendors/Kernel'
 import { MyAccount } from '../vendors/MyAccount'
 import { WebWallet } from '../WebWallet'
 
@@ -30,11 +31,12 @@ const wallet = new WebWallet({
 	},
 	vendors: {
 		'johnson86tw.0.0.1': new MyAccount(),
+		[Kernel.accountId]: new Kernel(),
 	},
 	paymaster: new PaymasterProvider({
 		chainId,
 		clientUrl: CLIENT_URL,
-		paymasterAddress: addresses.sepolia.PAYMASTER,
+		paymasterAddress: addresses.sepolia.CHARITY_PAYMASTER,
 	}),
 })
 
@@ -55,6 +57,9 @@ if (selectedIndex === null || isNaN(Number(selectedIndex)) || Number(selectedInd
 const sender = accounts[Number(selectedIndex)].address
 logger.info('Sender:', sender)
 
+const num = Math.floor(Math.random() * 10000)
+logger.info(`Setting number to ${num}`)
+
 logger.info('Sending op...')
 const userOpHash = await wallet.sendOp({
 	validatorId: 'eoa-managed',
@@ -62,7 +67,7 @@ const userOpHash = await wallet.sendOp({
 	executions: [
 		{
 			to: addresses.sepolia.COUNTER,
-			data: new Interface(['function setNumber(uint256)']).encodeFunctionData('setNumber', [2]),
+			data: new Interface(['function setNumber(uint256)']).encodeFunctionData('setNumber', [num]),
 			value: '0x0',
 		},
 	],
