@@ -9,7 +9,7 @@ import {
 	zeroPadValue,
 	type BytesLike,
 } from 'ethers'
-import { addresses } from '../constants'
+import { addresses } from '../addresses'
 import type { Execution } from '../types'
 import { AccountVendor } from '../types'
 import { abiEncode, padLeft } from '../utils'

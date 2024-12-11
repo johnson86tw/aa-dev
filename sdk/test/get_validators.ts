@@ -1,5 +1,5 @@
 import { Wallet } from 'ethers'
-import { addresses } from '../constants'
+import { addresses } from '../addresses'
 import { logger } from '../logger'
 import { PaymasterProvider } from '../PaymasterProvider'
 import { MyAccount } from '../vendors/MyAccount'

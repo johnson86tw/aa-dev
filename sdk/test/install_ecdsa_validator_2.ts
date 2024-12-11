@@ -1,5 +1,5 @@
 import { Interface, Wallet } from 'ethers'
-import { addresses, OWNER_ADDRESS } from '../constants'
+import { addresses, OWNER_ADDRESS } from '../addresses'
 import { logger } from '../logger'
 import { PaymasterProvider } from '../PaymasterProvider'
 import { ECDSAValidator } from '../validators/ECDSAValidator'

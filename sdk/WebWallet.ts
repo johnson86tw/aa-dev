@@ -1,7 +1,7 @@
 import type { EventLog } from 'ethers'
 import { Contract, JsonRpcProvider, toBeHex } from 'ethers'
 import { BundlerRpcProvider } from './BundlerRpcProvider'
-import { addresses } from './constants'
+import { addresses } from './addresses'
 import type { Execution, PaymasterProvider, UserOperation, UserOperationReceipt } from './types'
 import { type AccountValidator, type AccountVendor } from './types'
 import { getEmptyUserOp, packUserOp } from './utils'

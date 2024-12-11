@@ -1,18 +1,15 @@
 export const SESSION_PUBLIC_KEY = '0xb04662Edea81c9BD5717544514e7F2D14B148fF5'
 export const OWNER_ADDRESS = '0xd78B5013757Ea4A7841811eF770711e6248dC282'
 
-// sepolia
-export const MY_ACCOUNT_ADDRESS = '0x67ce34bc421060b8594cdd361ce201868845045b'
-export const KERNEL_ADDRESS = '0x41f88637a749c815a31fe2867fbdf59af7b2fceb'
-
 interface Addresses {
-	readonly sepolia: {
-		[key: string]: string
+	readonly [network: string]: {
+		[contract: string]: string
 	}
 }
 
 export const addresses: Addresses = {
 	sepolia: {
+		COUNTER: '0x46605b05769094675cb1e6aeb8e35bce349ed8c6',
 		ENTRY_POINT: '0x0000000071727De22E5E9d8BAf0edAc6f37da032',
 		SMART_SESSION: '0xCF57f874F2fAd43379ac571bDea61B759baDBD9B',
 		SIMPLE_SESSION_VALIDATOR: '0x61246aaA9057c4Df78416Ac1ff047C97b6eF392D',
@@ -24,5 +21,12 @@ export const addresses: Addresses = {
 		PAYMASTER: '0xA2E1944eD3294f0202a063cc971ECe09cbd02e43',
 		CHARITY_PAYMASTER: '0x3f4Dd392b2a6D703F2A7A6925Ed0138b5b1E9357',
 		KERNEL_FACTORY: '0xaac5D4240AF87249B3f71BC8E4A2cae074A3E419',
+
+		// accounts
+		MY_ACCOUNT: '0x67ce34bc421060b8594cdd361ce201868845045b',
+		KERNEL: '0x41f88637a749c815a31fe2867fbdf59af7b2fceb',
+	},
+	mekong: {
+		COUNTER: '0xa8d4452Ae282FC13521C6A4d91FE58bB49719EB4',
 	},
 }

@@ -2,7 +2,7 @@ import { Wallet } from 'ethers'
 import { beforeEach, describe } from 'vitest'
 import { ECDSAValidator } from './accountValidators'
 import { MyAccount } from './accountVendors'
-import { addresses } from './constants'
+import { addresses } from './addresses'
 import { PaymasterProvider } from './PaymasterProvider'
 import { WebWallet } from './WebWallet'
 

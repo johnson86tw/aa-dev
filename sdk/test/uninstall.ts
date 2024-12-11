@@ -1,6 +1,6 @@
 import { Interface, Wallet } from 'ethers'
 import { ECDSAValidator } from '../validators/ECDSAValidator'
-import { addresses } from '../constants'
+import { addresses } from '../addresses'
 import { logger } from '../logger'
 import { PaymasterProvider } from '../PaymasterProvider'
 import { MyAccount } from '../vendors/MyAccount'

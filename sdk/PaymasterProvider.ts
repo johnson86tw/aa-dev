@@ -1,5 +1,5 @@
 import { Contract, JsonRpcProvider, toBeHex } from 'ethers'
-import { addresses } from './constants'
+import { addresses } from './addresses'
 import type { GetPaymasterStubDataParams, GetPaymasterStubDataResult } from './types'
 
 type ConstructorOptions = {
