@@ -1,5 +1,5 @@
 import { Interface, Wallet } from 'ethers'
-import { addresses, OWNER_ADDRESS } from '../addresses'
+import { addresses, OWNER_ADDRESS, toNetwork } from '../addresses'
 import { logger } from '../logger'
 import { PaymasterProvider } from '../PaymasterProvider'
 import { ECDSAValidator } from '../validators/ECDSAValidator'
@@ -15,7 +15,7 @@ const CLIENT_URL = process.env.sepolia
 const PIMLICO_API_KEY = process.env.PIMLICO_API_KEY
 const BUNDLER_URL = `https://api.pimlico.io/v2/11155111/rpc?apikey=${PIMLICO_API_KEY}`
 
-const chainId = 11155111
+const chainId = '11155111'
 
 const wallet = new WebWallet({
 	chainId,
@@ -25,7 +25,7 @@ const wallet = new WebWallet({
 		'eoa-managed': new ECDSAValidator({
 			clientUrl: CLIENT_URL,
 			signer: new Wallet(PRIVATE_KEY),
-			address: addresses.sepolia.ECDSA_VALIDATOR,
+			address: addresses[toNetwork(chainId)].ECDSA_VALIDATOR,
 		}),
 	},
 	vendors: {
@@ -34,7 +34,7 @@ const wallet = new WebWallet({
 	paymaster: new PaymasterProvider({
 		chainId,
 		clientUrl: CLIENT_URL,
-		paymasterAddress: addresses.sepolia.PAYMASTER,
+		paymasterAddress: addresses[toNetwork(chainId)].PAYMASTER,
 	}),
 })
 
@@ -59,7 +59,7 @@ const userOpHash = await wallet.sendOp({
 			to: sender,
 			data: new Interface([
 				'function installModule(uint256 moduleTypeId, address module, bytes calldata initData)',
-			]).encodeFunctionData('installModule', [1, addresses.sepolia.ECDSA_VALIDATOR_2, OWNER_ADDRESS]),
+			]).encodeFunctionData('installModule', [1, addresses[toNetwork(chainId)].ECDSA_VALIDATOR_2, OWNER_ADDRESS]),
 			value: '0x0',
 		},
 	],

@@ -1,7 +1,8 @@
-import { hexlify, JsonRpcProvider, randomBytes, Wallet } from 'ethers'
-import { addresses } from '../addresses'
+import { hexlify, JsonRpcProvider, randomBytes, toBeHex, Wallet } from 'ethers'
+import { addresses, toNetwork } from '../addresses'
 import { logger } from '../logger'
 import { PaymasterProvider } from '../PaymasterProvider'
+import { padLeft } from '../utils'
 import { ECDSAValidator } from '../validators/ECDSAValidator'
 import { Kernel } from '../vendors/Kernel'
 import { WebWallet } from '../WebWallet'
@@ -13,9 +14,25 @@ if (!process.env.PIMLICO_API_KEY || !process.env.sepolia || !process.env.PRIVATE
 const PRIVATE_KEY = process.env.PRIVATE_KEY
 const CLIENT_URL = process.env.sepolia
 const PIMLICO_API_KEY = process.env.PIMLICO_API_KEY
-const BUNDLER_URL = `https://api.pimlico.io/v2/11155111/rpc?apikey=${PIMLICO_API_KEY}`
 
-const chainId = '11155111'
+const defaultChainId = '11155111'
+const chainIdInput = prompt('Enter chainId (s for Sepolia, m for Mekong, or custom chainId):')
+const chainId =
+	chainIdInput === 's' ? defaultChainId : chainIdInput === 'm' ? '7078815900' : chainIdInput || defaultChainId
+
+const defaultSalt = hexlify(randomBytes(32))
+const saltInput = prompt('Enter salt (leave empty for random):')
+const salt = saltInput ? padLeft(toBeHex(BigInt(saltInput)), 32) : defaultSalt
+
+logger.info(`ChainId: ${chainId}`)
+logger.info(`Salt: ${salt}`)
+
+let confirmed = prompt('Confirm? (y/n)')
+if (confirmed !== 'y') {
+	process.exit()
+}
+
+const BUNDLER_URL = `https://api.pimlico.io/v2/${chainId}/rpc?apikey=${PIMLICO_API_KEY}`
 
 const signer = new Wallet(PRIVATE_KEY)
 
@@ -27,7 +44,7 @@ const wallet = new WebWallet({
 		'eoa-managed': new ECDSAValidator({
 			clientUrl: CLIENT_URL,
 			signer,
-			address: addresses.sepolia.ECDSA_VALIDATOR,
+			address: addresses[toNetwork(chainId)].ECDSA_VALIDATOR,
 		}),
 	},
 	vendors: {
@@ -36,28 +53,26 @@ const wallet = new WebWallet({
 	paymaster: new PaymasterProvider({
 		chainId,
 		clientUrl: CLIENT_URL,
-		paymasterAddress: addresses.sepolia.CHARITY_PAYMASTER,
+		paymasterAddress: addresses[toNetwork(chainId)].CHARITY_PAYMASTER,
 	}),
 })
 
-const salt = hexlify(randomBytes(32))
-
 const address = await new Kernel().getAddress(
 	new JsonRpcProvider(CLIENT_URL),
-	addresses.sepolia.ECDSA_VALIDATOR,
+	addresses[toNetwork(chainId)].ECDSA_VALIDATOR,
 	signer.address,
 	salt,
 )
 logger.info(`Address: ${address}`)
 
-const confirmed = prompt('Confirm? (y/n)')
+confirmed = prompt('Confirm? (y/n)')
 if (confirmed !== 'y') {
 	process.exit()
 }
 
 logger.info('Sending op...')
 const userOpHash = await wallet.sendOpForAccountCreation(address, Kernel.accountId, 'eoa-managed', [
-	addresses.sepolia.ECDSA_VALIDATOR,
+	addresses[toNetwork(chainId)].ECDSA_VALIDATOR,
 	signer.address,
 	salt,
 ])

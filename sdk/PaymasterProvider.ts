@@ -1,5 +1,5 @@
 import { Contract, JsonRpcProvider, toBeHex } from 'ethers'
-import { addresses } from './addresses'
+import { addresses, toNetwork } from './addresses'
 import type { GetPaymasterStubDataParams, GetPaymasterStubDataResult } from './types'
 
 type ConstructorOptions = {
@@ -27,12 +27,12 @@ export class PaymasterProvider {
 
 	async getPaymasterStubData(params: GetPaymasterStubDataParams): Promise<GetPaymasterStubDataResult> {
 		// check entrypoint and chain id is correct
-		if (params[1] !== addresses.sepolia.ENTRY_POINT || params[2] !== this.#chainId) {
+		if (params[1] !== addresses[toNetwork(this.#chainId)].ENTRY_POINT || params[2] !== this.#chainId) {
 			throw new Error('Entrypoint or chain id is incorrect')
 		}
 
 		// for charity paymaster
-		if (this.#paymasterAddress === addresses.sepolia.CHARITY_PAYMASTER) {
+		if (this.#paymasterAddress === addresses[toNetwork(this.#chainId)].CHARITY_PAYMASTER) {
 			return {
 				sponsor: {
 					name: 'My Wallet',

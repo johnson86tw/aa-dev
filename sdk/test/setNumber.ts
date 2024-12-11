@@ -1,5 +1,5 @@
 import { Interface, Wallet } from 'ethers'
-import { addresses } from '../addresses'
+import { addresses, toNetwork } from '../addresses'
 import { logger } from '../logger'
 import { PaymasterProvider } from '../PaymasterProvider'
 import { ECDSAValidator } from '../validators/ECDSAValidator'
@@ -26,7 +26,7 @@ const wallet = new WebWallet({
 		'eoa-managed': new ECDSAValidator({
 			clientUrl: CLIENT_URL,
 			signer: new Wallet(PRIVATE_KEY),
-			address: addresses.sepolia.ECDSA_VALIDATOR,
+			address: addresses[toNetwork(chainId)].ECDSA_VALIDATOR,
 		}),
 	},
 	vendors: {
@@ -36,7 +36,7 @@ const wallet = new WebWallet({
 	paymaster: new PaymasterProvider({
 		chainId,
 		clientUrl: CLIENT_URL,
-		paymasterAddress: addresses.sepolia.CHARITY_PAYMASTER,
+		paymasterAddress: addresses[toNetwork(chainId)].CHARITY_PAYMASTER,
 	}),
 })
 
@@ -66,7 +66,7 @@ const userOpHash = await wallet.sendOp({
 	from: accounts[Number(selectedIndex)].address,
 	executions: [
 		{
-			to: addresses.sepolia.COUNTER,
+			to: addresses[toNetwork(chainId)].COUNTER,
 			data: new Interface(['function setNumber(uint256)']).encodeFunctionData('setNumber', [num]),
 			value: '0x0',
 		},

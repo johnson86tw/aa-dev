@@ -2,7 +2,7 @@ import { Wallet } from 'ethers'
 import { beforeEach, describe } from 'vitest'
 import { ECDSAValidator } from './validators/ECDSAValidator'
 import { MyAccount } from './vendors/MyAccount'
-import { addresses } from './addresses'
+import { addresses, toNetwork } from './addresses'
 import { PaymasterProvider } from './PaymasterProvider'
 import { WebWallet } from './WebWallet'
 
@@ -29,7 +29,7 @@ describe('WebWallet', () => {
 				'eoa-managed': new ECDSAValidator({
 					clientUrl: CLIENT_URL,
 					signer: new Wallet(PRIVATE_KEY),
-					address: addresses.sepolia.ECDSA_VALIDATOR,
+					address: addresses[toNetwork(chainId)].ECDSA_VALIDATOR,
 				}),
 			},
 			vendors: {
@@ -38,7 +38,7 @@ describe('WebWallet', () => {
 			paymaster: new PaymasterProvider({
 				chainId,
 				clientUrl: CLIENT_URL,
-				paymasterAddress: addresses.sepolia.PAYMASTER,
+				paymasterAddress: addresses[toNetwork(chainId)].PAYMASTER,
 			}),
 		})
 	})

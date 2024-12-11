@@ -1,9 +1,10 @@
 import type { BytesLike } from 'ethers'
 import { concat, Contract, hexlify, Interface, isAddress, JsonRpcProvider, toBeHex, ZeroAddress } from 'ethers'
-import { addresses } from '../addresses'
 import type { Execution } from '../types'
 import { AccountVendor } from '../types'
 import { abiEncode, is32BytesHexString, padLeft } from '../utils'
+
+const KERNEL_FACTORY_ADDRESS = '0xaac5D4240AF87249B3f71BC8E4A2cae074A3E419'
 
 export class Kernel extends AccountVendor {
 	static readonly accountId = 'kernel.advanced.v0.3.1'
@@ -25,7 +26,7 @@ export class Kernel extends AccountVendor {
 			throw new Error('Salt should be 32 bytes')
 		}
 
-		const kernelFactory = new Contract(addresses.sepolia.KERNEL_FACTORY, Kernel.kernelFactoryInterface, provider)
+		const kernelFactory = new Contract(KERNEL_FACTORY_ADDRESS, Kernel.kernelFactoryInterface, provider)
 		const address = await kernelFactory['getAddress(bytes,bytes32)'](this.getInitializeData(validator, owner), salt)
 
 		if (!isAddress(address)) {
@@ -37,7 +38,7 @@ export class Kernel extends AccountVendor {
 
 	getInitCodeData(validator: string, owner: string, salt: string) {
 		return {
-			factory: addresses.sepolia.KERNEL_FACTORY,
+			factory: KERNEL_FACTORY_ADDRESS,
 			factoryData: this.getCreateAccountData(validator, owner, salt),
 		}
 	}

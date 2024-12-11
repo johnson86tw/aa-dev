@@ -9,10 +9,11 @@ import {
 	zeroPadValue,
 	type BytesLike,
 } from 'ethers'
-import { addresses } from '../addresses'
 import type { Execution } from '../types'
 import { AccountVendor } from '../types'
 import { abiEncode, padLeft } from '../utils'
+
+const MY_ACCOUNT_FACTORY_ADDRESS = '0x7cdf84c1d0915748Df0f1dA6d92701ac6A903E41'
 
 export class MyAccount extends AccountVendor {
 	static readonly accountId = 'johnson86tw.0.0.1'
@@ -85,7 +86,7 @@ export class MyAccount extends AccountVendor {
 
 	async getAddress(provider: JsonRpcProvider, salt: BytesLike, validator: string, owner: string): Promise<string> {
 		const myAccountFactory = new Contract(
-			addresses.sepolia.MY_ACCOUNT_FACTORY,
+			MY_ACCOUNT_FACTORY_ADDRESS,
 			['function getAddress(uint256 salt, address validator, bytes calldata data) public view returns (address)'],
 			provider,
 		)
@@ -100,7 +101,7 @@ export class MyAccount extends AccountVendor {
 
 	getInitCodeData(salt: BytesLike, validator: string, owner: string) {
 		return {
-			factory: addresses.sepolia.MY_ACCOUNT_FACTORY,
+			factory: MY_ACCOUNT_FACTORY_ADDRESS,
 			factoryData: new Interface([
 				'function createAccount(uint256 salt, address validator, bytes calldata data)',
 			]).encodeFunctionData('createAccount', [salt, validator, owner]),

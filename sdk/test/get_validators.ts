@@ -1,5 +1,5 @@
 import { Wallet } from 'ethers'
-import { addresses } from '../addresses'
+import { addresses, toNetwork } from '../addresses'
 import { logger } from '../logger'
 import { PaymasterProvider } from '../PaymasterProvider'
 import { MyAccount } from '../vendors/MyAccount'
@@ -15,7 +15,7 @@ const CLIENT_URL = process.env.sepolia
 const PIMLICO_API_KEY = process.env.PIMLICO_API_KEY
 const BUNDLER_URL = `https://api.pimlico.io/v2/11155111/rpc?apikey=${PIMLICO_API_KEY}`
 
-const chainId = 11155111
+const chainId = '11155111'
 
 const signer = new Wallet(PRIVATE_KEY)
 
@@ -25,12 +25,12 @@ const wallet = new WebWallet({
 	bundlerUrl: BUNDLER_URL,
 	validators: {
 		'eoa-managed': new ECDSAValidator({
-			address: addresses.sepolia.ECDSA_VALIDATOR,
+			address: addresses[toNetwork(chainId)].ECDSA_VALIDATOR,
 			clientUrl: CLIENT_URL,
 			signer,
 		}),
 		'eoa-managed-2': new ECDSAValidator({
-			address: addresses.sepolia.ECDSA_VALIDATOR_2,
+			address: addresses[toNetwork(chainId)].ECDSA_VALIDATOR_2,
 			clientUrl: CLIENT_URL,
 			signer,
 		}),
@@ -41,7 +41,7 @@ const wallet = new WebWallet({
 	paymaster: new PaymasterProvider({
 		chainId,
 		clientUrl: CLIENT_URL,
-		paymasterAddress: addresses.sepolia.PAYMASTER,
+		paymasterAddress: addresses[toNetwork(chainId)].PAYMASTER,
 	}),
 })
 

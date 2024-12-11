@@ -1,6 +1,6 @@
 import { Interface, Wallet } from 'ethers'
 import { ECDSAValidator } from '../validators/ECDSAValidator'
-import { addresses } from '../addresses'
+import { addresses, toNetwork } from '../addresses'
 import { logger } from '../logger'
 import { PaymasterProvider } from '../PaymasterProvider'
 import { MyAccount } from '../vendors/MyAccount'
@@ -15,7 +15,7 @@ const CLIENT_URL = process.env.sepolia
 const PIMLICO_API_KEY = process.env.PIMLICO_API_KEY
 const BUNDLER_URL = `https://api.pimlico.io/v2/11155111/rpc?apikey=${PIMLICO_API_KEY}`
 
-const chainId = 11155111
+const chainId = '11155111'
 
 const wallet = new WebWallet({
 	chainId,
@@ -23,7 +23,7 @@ const wallet = new WebWallet({
 	bundlerUrl: BUNDLER_URL,
 	validators: {
 		'eoa-managed': new ECDSAValidator({
-			address: addresses.sepolia.ECDSA_VALIDATOR,
+			address: addresses[toNetwork(chainId)].ECDSA_VALIDATOR,
 			clientUrl: CLIENT_URL,
 			signer: new Wallet(PRIVATE_KEY),
 		}),
@@ -34,7 +34,7 @@ const wallet = new WebWallet({
 	paymaster: new PaymasterProvider({
 		chainId,
 		clientUrl: CLIENT_URL,
-		paymasterAddress: addresses.sepolia.PAYMASTER,
+		paymasterAddress: addresses[toNetwork(chainId)].PAYMASTER,
 	}),
 })
 
@@ -53,7 +53,7 @@ if (confirmed !== 'y') {
 const deInitData = await new MyAccount().getUninstallModuleDeInitData(
 	sender,
 	CLIENT_URL,
-	addresses.sepolia.ECDSA_VALIDATOR_2,
+	addresses[toNetwork(chainId)].ECDSA_VALIDATOR_2,
 )
 
 logger.info('Sending op...')
@@ -65,7 +65,7 @@ const userOpHash = await wallet.sendOp({
 			to: sender,
 			data: new Interface([
 				'function uninstallModule(uint256 moduleTypeId, address module, bytes calldata deInitData)',
-			]).encodeFunctionData('uninstallModule', [1, addresses.sepolia.ECDSA_VALIDATOR_2, deInitData]),
+			]).encodeFunctionData('uninstallModule', [1, addresses[toNetwork(chainId)].ECDSA_VALIDATOR_2, deInitData]),
 			value: '0x0',
 		},
 	],

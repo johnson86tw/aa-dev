@@ -1,7 +1,7 @@
 import type { EventLog } from 'ethers'
 import { Contract, JsonRpcProvider, toBeHex } from 'ethers'
 import { BundlerRpcProvider } from './BundlerRpcProvider'
-import { addresses } from './addresses'
+import { addresses, toNetwork } from './addresses'
 import type { Execution, PaymasterProvider, UserOperation, UserOperationReceipt } from './types'
 import { type AccountValidator, type AccountVendor } from './types'
 import { getEmptyUserOp, packUserOp } from './utils'
@@ -54,7 +54,7 @@ export class WebWallet {
 		this.paymaster = options.paymaster
 
 		this.entryPoint = new Contract(
-			addresses.sepolia.ENTRY_POINT,
+			addresses[toNetwork(this.chainId)].ENTRY_POINT,
 			[
 				'function getUserOpHash(tuple(address sender, uint256 nonce, bytes initCode, bytes callData, bytes32 accountGasLimits, uint256 preVerificationGas, bytes32 gasFees, bytes paymasterAndData, bytes signature) userOp) external view returns (bytes32)',
 				'function getNonce(address sender, uint192 key) external view returns (uint256 nonce)',
@@ -113,7 +113,7 @@ export class WebWallet {
 
 		await this.bundler.send({
 			method: 'eth_sendUserOperation',
-			params: [userOp, addresses.sepolia.ENTRY_POINT],
+			params: [userOp, addresses[toNetwork(this.chainId)].ENTRY_POINT],
 		})
 
 		return userOpHash
@@ -163,7 +163,7 @@ export class WebWallet {
 
 		await this.bundler.send({
 			method: 'eth_sendUserOperation',
-			params: [userOp, addresses.sepolia.ENTRY_POINT],
+			params: [userOp, addresses[toNetwork(this.chainId)].ENTRY_POINT],
 		})
 
 		return userOpHash
@@ -303,7 +303,7 @@ export class WebWallet {
 			const paymasterProvider = this.paymaster as PaymasterProvider
 			const paymasterResult = await paymasterProvider.getPaymasterStubData([
 				userOp,
-				addresses.sepolia.ENTRY_POINT,
+				addresses[toNetwork(this.chainId)].ENTRY_POINT,
 				this.chainId,
 				{}, // Context
 			])
@@ -326,7 +326,7 @@ export class WebWallet {
 		userOp.maxFeePerGas = curGasPrice.standard.maxFeePerGas
 		const estimateGas = await this.bundler.send({
 			method: 'eth_estimateUserOperationGas',
-			params: [userOp, addresses.sepolia.ENTRY_POINT],
+			params: [userOp, addresses[toNetwork(this.chainId)].ENTRY_POINT],
 		})
 
 		return {

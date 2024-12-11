@@ -7,6 +7,15 @@ interface Addresses {
 	}
 }
 
+export const chainIdToNetwork: Record<string, keyof Addresses> = {
+	'11155111': 'sepolia',
+	'7078815900': 'mekong',
+}
+
+export function toNetwork(chainId: string): keyof Addresses {
+	return chainIdToNetwork[chainId]
+}
+
 export const addresses: Addresses = {
 	sepolia: {
 		COUNTER: '0x46605b05769094675cb1e6aeb8e35bce349ed8c6',
@@ -28,5 +37,11 @@ export const addresses: Addresses = {
 	},
 	mekong: {
 		COUNTER: '0xa8d4452Ae282FC13521C6A4d91FE58bB49719EB4',
+		ENTRY_POINT: '0x0000000071727De22E5E9d8BAf0edAc6f37da032',
 	},
 }
+
+// TODO: create2 addresses
+// KERNEL_FACTORY_ADDRESS
+// MY_ACCOUNT_FACTORY_ADDRESS
+// ECDSA_VALIDATOR_ADDRESS
