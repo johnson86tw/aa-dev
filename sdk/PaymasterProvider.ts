@@ -3,13 +3,13 @@ import { addresses } from './addresses'
 import type { GetPaymasterStubDataParams, GetPaymasterStubDataResult } from './types'
 
 type ConstructorOptions = {
-	chainId: number
+	chainId: string
 	clientUrl: string
 	paymasterAddress: string
 }
 
 export class PaymasterProvider {
-	#chainId: number
+	#chainId: string
 	#client: JsonRpcProvider
 	#paymasterAddress: string
 	#paymaster: Contract
@@ -27,7 +27,7 @@ export class PaymasterProvider {
 
 	async getPaymasterStubData(params: GetPaymasterStubDataParams): Promise<GetPaymasterStubDataResult> {
 		// check entrypoint and chain id is correct
-		if (params[1] !== addresses.sepolia.ENTRY_POINT || params[2] !== this.#chainId.toString()) {
+		if (params[1] !== addresses.sepolia.ENTRY_POINT || params[2] !== this.#chainId) {
 			throw new Error('Entrypoint or chain id is incorrect')
 		}
 

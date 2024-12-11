@@ -16,7 +16,7 @@ const CLIENT_URL = process.env.sepolia
 const PIMLICO_API_KEY = process.env.PIMLICO_API_KEY
 const BUNDLER_URL = `https://api.pimlico.io/v2/11155111/rpc?apikey=${PIMLICO_API_KEY}`
 
-const chainId = 11155111
+const chainId = '11155111'
 
 const wallet = new WebWallet({
 	chainId,

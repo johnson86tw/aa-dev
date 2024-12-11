@@ -1,7 +1,7 @@
 import { Wallet } from 'ethers'
 import { beforeEach, describe } from 'vitest'
-import { ECDSAValidator } from './accountValidators'
-import { MyAccount } from './accountVendors'
+import { ECDSAValidator } from './validators/ECDSAValidator'
+import { MyAccount } from './vendors/MyAccount'
 import { addresses } from './addresses'
 import { PaymasterProvider } from './PaymasterProvider'
 import { WebWallet } from './WebWallet'
@@ -15,7 +15,7 @@ const CLIENT_URL = process.env.sepolia
 const PIMLICO_API_KEY = process.env.PIMLICO_API_KEY
 const BUNDLER_URL = `https://api.pimlico.io/v2/11155111/rpc?apikey=${PIMLICO_API_KEY}`
 
-const chainId = 11155111
+const chainId = '11155111'
 
 describe('WebWallet', () => {
 	let wallet: WebWallet

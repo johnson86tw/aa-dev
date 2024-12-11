@@ -7,7 +7,7 @@ import { type AccountValidator, type AccountVendor } from './types'
 import { getEmptyUserOp, packUserOp } from './utils'
 
 type ConstructorOptions = {
-	chainId: number
+	chainId: string
 	clientUrl: string
 	bundlerUrl: string
 	validators: {
@@ -32,7 +32,7 @@ export class WebWallet {
 	static readonly ENTRYPOINT_VERSION = 'v0.7'
 	readonly entryPoint: Contract
 
-	chainId: number
+	chainId: string
 	client: JsonRpcProvider
 	bundler: BundlerRpcProvider
 	validators: {
@@ -304,7 +304,7 @@ export class WebWallet {
 			const paymasterResult = await paymasterProvider.getPaymasterStubData([
 				userOp,
 				addresses.sepolia.ENTRY_POINT,
-				this.chainId.toString(),
+				this.chainId,
 				{}, // Context
 			])
 
