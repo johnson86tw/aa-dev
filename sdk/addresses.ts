@@ -1,24 +1,18 @@
 export const SESSION_PUBLIC_KEY = '0xb04662Edea81c9BD5717544514e7F2D14B148fF5'
 export const OWNER_ADDRESS = '0xd78B5013757Ea4A7841811eF770711e6248dC282'
 
-interface Addresses {
-	readonly [network: string]: {
-		[contract: string]: string
-	}
-}
-
-export const chainIdToNetwork: Record<string, keyof Addresses> = {
+export const chainIdToNetwork: Record<string, string> = {
 	'11155111': 'sepolia',
 	'7078815900': 'mekong',
 }
 
-export function toNetwork(chainId: string): keyof Addresses {
+export function toNetwork(chainId: string): string {
 	return chainIdToNetwork[chainId]
 }
 
-export const addresses: Addresses = {
+export const addresses: Record<string, Record<string, string>> = {
 	sepolia: {
-		COUNTER: '0x46605b05769094675cb1e6aeb8e35bce349ed8c6',
+		COUNTER: '0x6310534eC64cd001Dd182Ca4cb359E9DB37d4378',
 		ENTRY_POINT: '0x0000000071727De22E5E9d8BAf0edAc6f37da032',
 		SMART_SESSION: '0xCF57f874F2fAd43379ac571bDea61B759baDBD9B',
 		SIMPLE_SESSION_VALIDATOR: '0x61246aaA9057c4Df78416Ac1ff047C97b6eF392D',

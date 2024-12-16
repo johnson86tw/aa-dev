@@ -1,5 +1,22 @@
+import { toNetwork } from '../addresses'
 import { logger } from '../logger'
 import type { WebWallet } from '../WebWallet'
+
+export function setup() {
+	const { PRIVATE_KEY, ALCHEMY_API_KEY, PIMLICO_API_KEY } = getEnv()
+
+	const chainId = askForChainId()
+
+	const CLIENT_URL = `https://eth-${toNetwork(chainId)}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+	const BUNDLER_URL = `https://api.pimlico.io/v2/${chainId}/rpc?apikey=${PIMLICO_API_KEY}`
+
+	return {
+		chainId,
+		CLIENT_URL,
+		BUNDLER_URL,
+		PRIVATE_KEY,
+	}
+}
 
 export function getEnv() {
 	if (!process.env.PIMLICO_API_KEY || !process.env.ALCHEMY_API_KEY || !process.env.PRIVATE_KEY) {
