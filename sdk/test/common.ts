@@ -19,7 +19,7 @@ export function getEnv() {
 
 export function askForChainId() {
 	const defaultChainId = '11155111'
-	const chainIdInput = prompt('Enter chainId (defaults to sepolia):')
+	const chainIdInput = prompt('Enter chainId (defaults to 11155111):')
 	const chainId =
 		chainIdInput === 's' ? defaultChainId : chainIdInput === 'm' ? '7078815900' : chainIdInput || defaultChainId
 

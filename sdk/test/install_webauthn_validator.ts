@@ -40,16 +40,19 @@ const sender = await askForSender(wallet, 'eoa-managed')
 
 // Build initData
 
-const pubKeyX = prompt('Enter pubKeyX:')
-const pubKeyY = prompt('Enter pubKeyY:')
-const authenticatorIdHash = prompt('Enter authenticatorIdHash:')
+const data = {
+	authenticatorId: '5nfD9pw16QX4kUulv4blYeqKT4E',
+	authenticatorIdHash: '0x36c3b36bec01f12a7f75e3fc4467d5c03f5f1fdc1849907d021e4626c092f968',
+	pubX: 61070815931548510204183047741042228547052967764675264541684722311603238592234n,
+	pubY: 79543058275581816376112120041438303099774438066511995897780226647456138258220n,
+}
 
 const initData = abiEncode(
 	[
 		'tuple(uint256 pubKeyX, uint256 pubKeyY)', // WebAuthnValidatorData
 		'bytes32', // authenticatorIdHash
 	],
-	[{ pubKeyX, pubKeyY }, authenticatorIdHash],
+	[[data.pubX, data.pubY], data.authenticatorIdHash],
 )
 
 logger.info(`Init data: ${initData}`)
