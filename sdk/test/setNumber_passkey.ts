@@ -7,6 +7,7 @@ import { Kernel } from '../vendors/Kernel'
 import { MyAccount } from '../vendors/MyAccount'
 import { WebWallet } from '../WebWallet'
 import { askForSender, setup } from './common'
+import { WebAuthnValidator } from '../validators/WebAuthnValidator'
 
 const { chainId, CLIENT_URL, BUNDLER_URL, PRIVATE_KEY } = setup()
 
@@ -19,6 +20,9 @@ const wallet = new WebWallet({
 			clientUrl: CLIENT_URL,
 			signer: new Wallet(PRIVATE_KEY),
 			address: addresses[toNetwork(chainId)].ECDSA_VALIDATOR,
+		}),
+		passkey: new WebAuthnValidator({
+			address: addresses[toNetwork(chainId)].WEB_AUTHN_VALIDATOR,
 		}),
 	},
 	vendors: {
@@ -39,7 +43,7 @@ logger.info(`Setting number to ${num}`)
 
 logger.info('Sending op...')
 const userOpHash = await wallet.sendOp({
-	validatorId: 'eoa-managed',
+	validatorId: 'passkey',
 	from: sender,
 	executions: [
 		{
