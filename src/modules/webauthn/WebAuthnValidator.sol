@@ -18,6 +18,13 @@ struct WebAuthnValidatorData {
     uint256 pubKeyY;
 }
 
+/*
+    forge create --account dev \
+    --rpc-url $sepolia \
+    ./src/modules/webauthn/WebAuthnValidator.sol:WebAuthnValidator \
+    --broadcast --verify
+*/
+
 /**
  * @title WebAuthnValidator
  * @author Modified from https://github.com/zerodevapp/kernel-7579-plugins
