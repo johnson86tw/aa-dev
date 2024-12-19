@@ -1,5 +1,6 @@
-import { AbiCoder, concat, ParamType, toBeHex, zeroPadBytes, zeroPadValue } from 'ethers'
+import { AbiCoder, concat, keccak256, ParamType, toBeHex, zeroPadBytes, zeroPadValue } from 'ethers'
 import type { PackedUserOperation, UserOperation } from './types'
+import { addresses, ENTRY_POINT_ADDRESS } from './addresses'
 
 export function is32BytesHexString(data: string) {
 	return data.startsWith('0x') && data.length === 66
@@ -75,4 +76,33 @@ export function packUserOp(userOp: UserOperation): PackedUserOperation {
 				: '0x',
 		signature: userOp.signature,
 	}
+}
+
+export function getUserOpHash(chainId: string, op: PackedUserOperation): string {
+	const hashedInitCode = keccak256(op.initCode)
+	const hashedCallData = keccak256(op.callData)
+	const hashedPaymasterAndData = keccak256(op.paymasterAndData)
+	const encoded = abiEncode(
+		['bytes32', 'address', 'uint256'],
+		[
+			keccak256(
+				abiEncode(
+					['address', 'uint256', 'bytes32', 'bytes32', 'bytes32', 'uint256', 'bytes32', 'bytes32'],
+					[
+						op.sender,
+						op.nonce,
+						hashedInitCode,
+						hashedCallData,
+						op.accountGasLimits,
+						op.preVerificationGas,
+						op.gasFees,
+						hashedPaymasterAndData,
+					],
+				),
+			),
+			ENTRY_POINT_ADDRESS,
+			BigInt(chainId),
+		],
+	)
+	return keccak256(encoded)
 }

@@ -4,7 +4,7 @@ import { BundlerRpcProvider } from './BundlerRpcProvider'
 import { addresses, toNetwork } from './addresses'
 import type { Execution, PaymasterProvider, UserOperation, UserOperationReceipt } from './types'
 import { type AccountValidator, type AccountVendor } from './types'
-import { getEmptyUserOp, packUserOp } from './utils'
+import { getEmptyUserOp, getUserOpHash, packUserOp } from './utils'
 
 type ConstructorOptions = {
 	chainId: string
@@ -107,8 +107,7 @@ export class WebWallet {
 		userOp.paymasterPostOpGasLimit = gasValues.paymasterPostOpGasLimit
 
 		// Sign signature
-		// TODO: calculate userOpHash without requesting from entryPoint
-		const userOpHash = await this.entryPoint.getUserOpHash(packUserOp(userOp))
+		const userOpHash = getUserOpHash(this.chainId, packUserOp(userOp))
 		userOp.signature = await this.getSignature(validatorId, userOpHash)
 
 		await this.bundler.send({
@@ -219,8 +218,7 @@ export class WebWallet {
 		userOp.paymasterPostOpGasLimit = gasValues.paymasterPostOpGasLimit
 
 		// Sign signature
-		// TODO: calculate userOpHash without requesting from entryPoint
-		const userOpHash = await this.entryPoint.getUserOpHash(packUserOp(userOp))
+		const userOpHash = getUserOpHash(this.chainId, packUserOp(userOp))
 		userOp.signature = await this.getSignature(validatorId, userOpHash)
 
 		return {

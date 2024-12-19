@@ -1,5 +1,6 @@
 export const SESSION_PUBLIC_KEY = '0xb04662Edea81c9BD5717544514e7F2D14B148fF5'
 export const OWNER_ADDRESS = '0xd78B5013757Ea4A7841811eF770711e6248dC282'
+export const ENTRY_POINT_ADDRESS = '0x0000000071727De22E5E9d8BAf0edAc6f37da032'
 
 export const chainIdToNetwork: Record<string, string> = {
 	'11155111': 'sepolia',
