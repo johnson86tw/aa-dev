@@ -1,19 +1,26 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+/*
+
+forge create --rpc-url $sepolia --account dev \
+./src/Counter.sol:Counter --broadcast --verify
+
+*/
+
 contract Counter {
     uint256 public number;
 
-    event NumberSet(uint256 newNumber);
-    event NumberIncremented();
+    event NumberSet(address indexed caller, uint256 newNumber);
+    event NumberIncremented(address indexed caller);
 
     function setNumber(uint256 newNumber) public {
         number = newNumber;
-        emit NumberSet(newNumber);
+        emit NumberSet(msg.sender, newNumber);
     }
 
     function increment() public {
         number++;
-        emit NumberIncremented();
+        emit NumberIncremented(msg.sender);
     }
 }
