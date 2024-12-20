@@ -10,10 +10,10 @@ contract CounterScript is Script {
     function setUp() public {}
 
     function run() public {
+        bytes32 salt = vm.envBytes32("SALT");
         vm.startBroadcast();
-
-        counter = new Counter();
-
+        counter = new Counter{salt: salt}();
+        console.log("Counter deployed at", address(counter));
         vm.stopBroadcast();
     }
 }
