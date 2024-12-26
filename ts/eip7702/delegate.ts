@@ -22,7 +22,7 @@ const walletClient = createWalletClient({
 	transport: http(),
 }).extend(eip7702Actions())
 
-const MyAccountImplAddress = '0x2127c3c7374ae16ca732d799b785b42bac5ebc0e'
+const MyAccountImplAddress = '0x22DA10403761fbA5d45dA7B55e231D110A33c9D8'
 
 const authorization = await walletClient.signAuthorization({
 	contractAddress: MyAccountImplAddress,
@@ -30,27 +30,27 @@ const authorization = await walletClient.signAuthorization({
 
 console.log('authorization', authorization)
 
-const txHash = await walletClient.sendTransaction({
-	to: '0x0000000000000000000000000000000000000000',
-	value: 0n,
+// const txHash = await walletClient.sendTransaction({
+// 	to: '0x0000000000000000000000000000000000000000',
+// 	value: 0n,
+// 	account: walletClient.account,
+// 	authorizationList: [authorization],
+// })
+
+// console.log('Transaction Hash:', txHash)
+
+const txHash = await writeContract(walletClient, {
+	address: MyAccountImplAddress,
+	abi: parseAbi(['function initialize(address anEntryPoint, address validator, bytes calldata data)']),
+	functionName: 'initialize',
+	args: [entryPoint07Address, '0x0581595879706B1e690C338b6198cD5F1525Da20', walletClient.account.address],
 	account: walletClient.account,
 	authorizationList: [authorization],
+	// maxPriorityFeePerGas: parseGwei("1.5"),
+	// maxFeePerGas: parseGwei("2"),
 })
 
 console.log('Transaction Hash:', txHash)
 
 const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
 console.log('Transaction confirmed:', receipt)
-
-// const txHash = await writeContract(walletClient, {
-// 	address: MyAccountImplAddress,
-// 	abi: parseAbi(['function initialize(address anEntryPoint, address validator, bytes calldata data)']),
-// 	functionName: 'initialize',
-// 	args: [entryPoint07Address, '0x0581595879706B1e690C338b6198cD5F1525Da20', walletClient.account.address],
-// 	account: walletClient.account,
-// 	authorizationList: [authorization],
-// 	// maxPriorityFeePerGas: parseGwei("1.5"),
-// 	// maxFeePerGas: parseGwei("2"),
-// })
-
-// console.log('Transaction Hash:', txHash)
