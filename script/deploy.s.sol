@@ -15,7 +15,7 @@ import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint
 // mekong
 // forge script script/deploy.s.sol --rpc-url $mekong --broadcast --account dev
 
-contract DeployECDSAValidatorScript is Script {
+contract DeployScript is Script {
     function setUp() public {}
 
     function run() public {
