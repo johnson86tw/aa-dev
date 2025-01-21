@@ -4,7 +4,7 @@ pragma solidity 0.8.27;
 import "@account-abstraction/contracts/interfaces/IPaymaster.sol";
 import "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 
-contract Paymaster is IPaymaster {
+contract AllowlistPaymaster is IPaymaster {
     uint256 constant VALIDATION_FAILED = 1;
     uint256 constant VALIDATION_SUCCESS = 0;
 
