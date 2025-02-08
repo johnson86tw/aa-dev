@@ -13,6 +13,9 @@ import {Counter} from "../src/Counter.sol";
 local:
 forge script script/setup.s.sol --rpc-url http://localhost:8545 --broadcast --account anvil0
 
+devnet5:
+forge script script/setup.s.sol --rpc-url https://rpc.pectra-devnet-5.ethpandaops.io --broadcast --account dev
+
 */
 
 contract SetupScript is Script {
@@ -37,10 +40,12 @@ contract SetupScript is Script {
             new MyAccountFactory{salt: salt}(IEntryPoint(0x0000000071727De22E5E9d8BAf0edAc6f37da032));
         console.log("MyAccountFactory deployed at", address(factory));
 
+        console.log("MyAccountImpl deployed at", address(factory.accountImplementation()));
+
         CharityPaymaster paymaster = new CharityPaymaster{salt: salt}();
         console.log("CharityPaymaster deployed at", address(paymaster));
 
-        IEntryPoint(0x0000000071727De22E5E9d8BAf0edAc6f37da032).depositTo{value: 10 ether}(address(paymaster));
+        IEntryPoint(0x0000000071727De22E5E9d8BAf0edAc6f37da032).depositTo{value: 1 ether}(address(paymaster));
         console.log("Deposited 10 ETH to EntryPoint for paymaster");
 
         vm.stopBroadcast();

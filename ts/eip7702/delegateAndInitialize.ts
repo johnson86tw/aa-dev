@@ -1,5 +1,7 @@
-import { createPublicClient, createWalletClient, http } from 'viem'
+import { createPublicClient, createWalletClient, http, parseAbi } from 'viem'
+import { entryPoint07Address } from 'viem/account-abstraction'
 import { privateKeyToAccount } from 'viem/accounts'
+import { writeContract } from 'viem/actions'
 import { eip7702Actions } from 'viem/experimental'
 import { devnet5 } from './common'
 
@@ -28,10 +30,13 @@ const authorization = await walletClient.signAuthorization({
 
 console.log('authorization', authorization)
 
-// Without initialize
-const txHash = await walletClient.sendTransaction({
-	to: MyAccountImplAddress,
-	value: 0n,
+// With initialize
+// Note that when the contract is initialized, it can't be delegated to
+const txHash = await writeContract(walletClient, {
+	address: MyAccountImplAddress,
+	abi: parseAbi(['function initialize(address anEntryPoint, address validator, bytes calldata data)']),
+	functionName: 'initialize',
+	args: [entryPoint07Address, '0x0581595879706B1e690C338b6198cD5F1525Da20', walletClient.account.address],
 	account: walletClient.account,
 	authorizationList: [authorization],
 })
